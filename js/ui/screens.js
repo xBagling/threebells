@@ -1,0 +1,206 @@
+// The small screens between fights: choosing the day's blessing, the results, and how to play.
+import { html, raw, mmss, untilNext } from "../util.js?v=48fd128-df87a96f";
+import { sfx } from "../audio.js?v=48fd128-df87a96f";
+import { iconCanvas } from "./touch.js?v=48fd128-df87a96f";
+import { dailyBlessings, dayNumber, weekNumber, weekModifier } from "../daily.js?v=48fd128-df87a96f";
+import { get as getSave } from "../store.js?v=48fd128-df87a96f";
+import { ITEMS } from "../content/items.js?v=48fd128-df87a96f";
+import { BOSS_ORDER } from "../content/bosses.js?v=48fd128-df87a96f";
+import { settleArms } from "../content/weapons.js?v=48fd128-df87a96f";
+import { isTouchDevice } from "../input.js?v=48fd128-df87a96f";
+import { controlsFor } from "./fight.js?v=48fd128-df87a96f";
+
+/** Pick one of three, the same three everyone is offered today. Only the day's first scored fight
+ *  shows this (the pick lasts every fight that day); practice shows it every time, as a free pick. */
+export function renderBlessing(root, { spec, tier, practice }, onPick) {
+  const day = dayNumber();
+  const three = dailyBlessings(day);
+  const mod = weekModifier(weekNumber(day));
+  root.innerHTML = html`<section class="screen bless">
+    <div class="bl-head">
+      <div class="bl-kicker">Before the doors open</div>
+      <h2>${practice ? "Take one blessing" : "Take today's blessing"}</h2>
+      <p class="bl-note">Everyone playing today is offered these three. ${practice ? "This is practice — nothing counts, and your pick for the day stays as it is." : "What you take, or going without, lasts every fight today. Once you step in, the day is spent."}</p>
+    </div>
+    <div class="bl-cards">
+      ${raw(
+        three
+          .map(
+            (b, i) => `<button class="bl-card" data-b="${b.id}" type="button" style="--i:${i}">
+              <span class="bl-ic">${iconCanvas(b.icon, 30)}</span>
+              <b>${b.name}</b>
+              <i>${b.desc}</i>
+              <em>${b.long}</em>
+            </button>`
+          )
+          .join("")
+      )}
+    </div>
+    <div class="bl-foot">
+      <span class="bl-boss">Next: <b>${spec.name}</b>, ${spec.title}${mod.id !== "none" ? ` · ${mod.name}` : ""}</span>
+      <button class="btn btn-quiet" data-none type="button">Go without one</button>
+    </div>
+  </section>`;
+  // (one pick at a time: a second tap inside the card's 320 ms queued a second fight; once it is handed on, main.js's loading
+  // card guards it, and a load cancelled there leaves this screen to pick from again)
+  let picking = false;
+  for (const el of root.querySelectorAll("[data-b]"))
+    el.onclick = () => {
+      if (picking) return;
+      picking = true;
+      sfx.open();
+      el.classList.add("is-taken");
+      setTimeout(() => {
+        picking = false;
+        el.classList.remove("is-taken");
+        onPick(three.find((b) => b.id === el.dataset.b));
+      }, 320);
+    };
+  root.querySelector("[data-none]").onclick = () => picking || (sfx.click(), onPick(null));
+}
+
+/**
+ * What happened, what it was worth, and what you can do next — a card of frosted glass over the garden as the fight
+ * left it (the owner, 2026-10-09: "Improve the 'Felled' screen to a more pretty interface ... a bit see through so
+ * that we can see the arena in the background"; fight.js keeps drawing under it). The numbers count up, the loot comes
+ * in one by one with a glint across it.
+ */
+export function renderResult(root, { result, spec, tier, gold, drops, practice, canContinue, nextSpec }, { onNext, onCamp, onTitle, onRetry }) {
+  const won = result.won;
+  const left = result.bossHpLeft / result.bossHpMax;
+  const share = shareText({ result, spec, tier, gold, practice });
+  const secs = Math.round(result.time);
+  root.innerHTML = html`<section class="screen result ${won ? "is-won" : "is-lost"}">
+    <div class="rs-card">
+      <div class="rs-mark"><i class="rs-rays"></i>${raw(won ? BELL_IMG : LOST_IMG)}</div>
+      <div class="rs-kicker">${practice ? (won ? "Practice · felled" : "Practice") : won ? "Felled" : "You fell"}</div>
+      <h2 class="rs-name">${spec.name}</h2>
+      ${won ? html`<p class="rs-line">Down in ${mmss(result.time)}${result.clean ? " — and never touched." : ""}</p>` : html`<p class="rs-line">${Math.ceil(left * 100)}% of ${spec.name} still standing.</p>`}
+
+      <div class="rs-grid">
+        <div style="--i:0"><b data-count="${secs}" data-clock>${mmss(result.time)}</b><i>on the clock</i></div>
+        <div style="--i:1"><b data-count="${result.damageDealt}">${result.damageDealt}</b><i>damage dealt</i></div>
+        <div style="--i:2"><b data-count="${result.hitsTaken}">${result.hitsTaken}</b><i>hits taken</i></div>
+        <div style="--i:3"><b data-count="${result.hpLeft != null ? Math.ceil(result.hpLeft) : 0}">${result.hpLeft != null ? Math.ceil(result.hpLeft) : 0}</b><i>health left</i></div>
+      </div>
+
+      <div class="rs-loot">
+        <div class="rs-loot-h">${won ? "Loot" : "Salvaged"}</div>
+        <div class="rs-gold" style="--i:0">${raw(iconCanvas("coin", 26))}<b data-count="${gold}" data-suffix="g">${gold}g</b><i>${practice ? "not banked — practice" : "earned"}</i></div>
+        ${raw((drops || []).map((d, i) => `<div class="rs-drop" style="--i:${i + 1}">${iconCanvas(ITEMS[d].icon, 28)}<span><b>${ITEMS[d].name}</b><i>${ITEMS[d].desc}</i></span><em>new</em></div>`).join(""))}
+      </div>
+
+      <details class="rs-share">
+        <summary>Share the result</summary>
+        <pre data-share>${share}</pre>
+        <button class="btn" data-copy type="button">Copy result</button>
+      </details>
+
+      <div class="rs-actions">
+        ${won && canContinue ? html`<button class="btn btn-go" data-next type="button">Straight on to ${nextSpec ? nextSpec.name : "the next"} →</button>` : ""}
+        ${practice ? html`<button class="btn btn-go" data-retry type="button">Again</button>` : ""}
+        ${!won && !practice ? html`<div class="rs-tomorrow">Your next life is in ${untilNext()}.</div>` : ""}
+        <div class="rs-row">
+          <button class="btn" data-camp type="button">Camp</button>
+          <button class="btn btn-quiet" data-title type="button">The hill</button>
+        </div>
+      </div>
+    </div>
+  </section>`;
+
+  sfx[won ? "bellSmall" : "lose"]();
+  const $ = (s) => root.querySelector(s);
+  $("[data-camp]").onclick = () => (sfx.click(), onCamp());
+  $("[data-title]").onclick = () => (sfx.click(), onTitle());
+  if ($("[data-next]")) $("[data-next]").onclick = () => (sfx.click(), onNext());
+  if ($("[data-retry]")) $("[data-retry]").onclick = () => (sfx.click(), onRetry());
+  $("[data-copy]").onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(share);
+      $("[data-copy]").textContent = "Copied";
+    } catch {
+      $("[data-copy]").textContent = "Select it and copy";
+    }
+    sfx.click();
+  };
+  // The numbers count up from nothing as their tiles come in (what is written above is the end: without a clock, as
+  // in the tests, that is what shows).
+  const counts = root.querySelectorAll?.("[data-count]") || [];
+  if (counts.length && typeof requestAnimationFrame === "function") {
+    const t0 = performance.now() + 250;
+    const show = (el, v) => (el.textContent = el.hasAttribute("data-clock") ? mmss(v) : `${Math.round(v)}${el.dataset.suffix || ""}`);
+    const tick = (now) => {
+      let going = false;
+      counts.forEach((el, i) => {
+        const k = Math.min(1, Math.max(0, (now - t0 - i * 90) / 900));
+        show(el, Number(el.dataset.count) * (1 - Math.pow(1 - k, 3)));
+        if (k < 1) going = true;
+      });
+      if (going && root.isConnected !== false) requestAnimationFrame(tick);
+    };
+    counts.forEach((el) => show(el, 0));
+    requestAnimationFrame(tick);
+  }
+}
+
+// (the bell actually struck — the Bog Shrine's, cut from its painting — gleaming for a win, darkened and cracked for a loss: the
+// owner, 2026-10-15: "Replace the icons in the result UI to something more premium looking, e.g a small symbol of the actual
+// bell that we hit, instead of a cartoonish bell and a cartoonish skull")
+const BELL_IMG = `<img class="rs-icon rs-bell" src="art/ui/bell-won.webp" alt="" aria-hidden="true">`;
+const LOST_IMG = `<img class="rs-icon rs-bell is-cracked" src="art/ui/bell-lost.webp" alt="" aria-hidden="true">`;
+
+/** Spoiler-free: the boss is the same for everyone, so naming it gives nothing away. */
+function shareText({ result, spec, tier, gold, practice }) {
+  const save = getSave();
+  const week = weekNumber();
+  const roman = ["I", "II", "III"][tier - 1] || "?";
+  // A bell for one you felled, a skull for the one that stopped you, a blank for one still standing.
+  // On a victory lap the week's three bells are all rung already, so the marks are today's run
+  // instead, or a death on the lap would never show: the lap goes from Boss I in order, so the ones
+  // before this fight were felled on the way to it. (The win that clears the week reads the same
+  // either way.) Practice keeps the week's marks.
+  const lap = !practice && save.week.cleared.length === BOSS_ORDER.length;
+  const felled = (t) => (lap ? t < tier || (t === tier && result.won) : save.week.cleared.includes(t));
+  const marks = BOSS_ORDER.map((_, i) => i + 1).map((t) => (felled(t) ? "🔔" : t === tier && !result.won ? "💀" : "⬛")).join("");
+  const bar = result.won ? "" : ` · ${Math.ceil((result.bossHpLeft / result.bossHpMax) * 100)}% left`;
+  return [`Three Bells · week ${week}`, `${marks}  ${spec.name} (${roman})${bar}`, `⏱ ${mmss(result.time)} · ⚔ ${result.damageDealt}${result.clean ? " · untouched" : ` · ${result.hitsTaken} hits taken`}`].join("\n");
+}
+
+export function renderHelp(root, onClose) {
+  // (on a phone, the thumbs' controls as the pause card gives them: it listed WASD, the mouse and Esc to a phone — the UI
+  // review, 2026-10-18)
+  const touch = isTouchDevice();
+  const save = getSave();
+  root.innerHTML = html`<div class="modal" data-modal>
+    <div class="modal-box help-box">
+      <h2>How this goes</h2>
+      <ol class="help-list">
+        <li><b>Three bosses a week.</b> The same three come back every Monday with a new twist, and the week starts again from the first. Everything you earn is kept.</li>
+        <li><b>One life a day.</b> The attempt is spent the moment the fight starts. Die and you come back tomorrow, better geared and knowing more.</li>
+        <li><b>Win and carry straight on.</b> Your health refills and the next boss opens the same day.</li>
+        <li><b>Practise any time.</b> Any boss you have reached this week, from the hill, as often as you like. It never counts and pays nothing.</li>
+        <li><b>The roll is the game.</b> There is a window in the middle of it where nothing can touch you. Learn where it is.</li>
+        <li><b>Everything red on the floor is honest.</b> What is drawn is what will hurt, and it is drawn long enough to leave.</li>
+        <li><b>Gold is never wasted.</b> Even a death pays, scaled to how far you got.</li>
+      </ol>
+      ${touch
+        ? html`<div class="help-keys help-touch">${controlsFor("touch", save.settings.hand, settleArms(save.arms).offAct).map(([how, what]) => html`<div><b>${how}</b><span>${what}</span></div>`)}</div>`
+        : html`<div class="help-keys">
+            <div><b>WASD</b><span>move</span></div>
+            <div><b>Mouse</b><span>aim</span></div>
+            <div><b>Click / J</b><span>attack</span></div>
+            <div><b>Shift</b><span>roll</span></div>
+            <div><b>Space</b><span>jump</span></div>
+            <div><b>1 · 2</b><span>your slots</span></div>
+            <div><b>Esc</b><span>pause</span></div>
+          </div>
+          <p class="help-foot">On a phone: the stick is wherever your left thumb lands; the buttons are under your right — the small one jumps.</p>`}
+      <button class="btn btn-go" data-close type="button">Got it</button>
+    </div>
+  </div>`;
+  const close = () => (sfx.click(), onClose());
+  root.querySelector("[data-close]").onclick = close;
+  root.querySelector("[data-modal]").onclick = (e) => {
+    if (e.target === e.currentTarget) close();
+  };
+}

@@ -1,0 +1,642 @@
+// Sound: recorded effects for the sword, the toad, the bells and the hero (public/audio/, SAMPLES below), the rest
+// made in the browser, tuned by a number rather than re-recorded. Everything is short, dry and a little metallic — a hall at night.
+//
+// Nothing is created until the first gesture, as browsers require, and everything is routed
+// through one gain so the settings screen has a single knob to turn.
+let ac = null;
+let master = null;
+let lowpass = null;
+let musicGain = null;
+let enabled = true;
+let musicStop = null;
+
+function ensure() {
+  if (ac) return ac;
+  const C = window.AudioContext || window.webkitAudioContext;
+  if (!C) return null;
+  ac = new C();
+  master = ac.createGain();
+  master.gain.value = 0.55;
+  // (a low-pass after it, open: a freeze dips it for an instant, so a heavy blow thumps through muffled — feel.js audio.duck)
+  lowpass = ac.createBiquadFilter();
+  lowpass.type = "lowpass";
+  lowpass.frequency.value = 20000;
+  master.connect(lowpass).connect(ac.destination);
+  musicGain = ac.createGain();
+  musicGain.gain.value = 0.3;
+  musicGain.connect(master);
+  return ac;
+}
+export function unlock() {
+  const c = ensure();
+  if (c && c.state !== "running" && c.state !== "closed") c.resume();
+  loadSamples(); // (the recorded sounds, fetched and decoded once the first gesture allows audio)
+}
+// Out of sight (another app or tab, the phone locked — the owner, 2026-10-10: "the game is running in the background on
+// my phone even when i go to another window. I hear the sound"): the audio is suspended, so nothing plays and the
+// phone's audio hardware can sleep; it carries on where it was as the page comes back. (The drawing stops by itself:
+// a hidden page gets no animation frames, and a fight pauses, fight.js.)
+function sleepAudio() {
+  if (ac && ac.state === "running") ac.suspend();
+}
+// (not only from "suspended": iOS leaves it "interrupted" after a call or Siri, and it stayed silent till a reload)
+function wakeAudio() {
+  if (ac && ac.state !== "running" && ac.state !== "closed") ac.resume();
+}
+if (typeof document !== "undefined" && document.addEventListener) {
+  document.addEventListener("visibilitychange", () => (document.hidden ? sleepAudio() : wakeAudio()));
+  // (some phones only send these when an app is switched away from or the page is put in the back/forward cache)
+  window.addEventListener("pagehide", sleepAudio);
+  window.addEventListener("pageshow", () => !document.hidden && wakeAudio());
+  // (and every gesture tries again, for good — main.js's first-gesture unlock is gone after one tap, and iOS only lets a
+  // context resume inside a gesture; a touch's own gesture is its pointerup / touchend, not its pointerdown)
+  const onGesture = () => !document.hidden && wakeAudio();
+  for (const ev of ["pointerdown", "pointerup", "touchend", "keydown"]) window.addEventListener(ev, onGesture, { capture: true, passive: true });
+}
+export function setEnabled(v) {
+  enabled = v;
+  if (master) master.gain.value = v ? 0.55 : 0;
+}
+export function setMusic(v) {
+  if (musicGain) musicGain.gain.value = v ? 0.3 : 0;
+}
+
+const now = () => (ac ? ac.currentTime : 0);
+
+/** One oscillator with an envelope. The workhorse. */
+function tone({ type = "sine", f = 440, f2 = null, t = 0.12, a = 0.004, g = 0.3, delay = 0, curve = "exp", to = null }) {
+  const c = ensure();
+  if (!c || !enabled) return;
+  const o = c.createOscillator();
+  const gn = c.createGain();
+  o.type = type;
+  const t0 = now() + delay;
+  o.frequency.setValueAtTime(f, t0);
+  if (f2) (curve === "exp" ? o.frequency.exponentialRampToValueAtTime : o.frequency.linearRampToValueAtTime).call(o.frequency, Math.max(1, f2), t0 + t);
+  gn.gain.setValueAtTime(0.0001, t0);
+  gn.gain.exponentialRampToValueAtTime(g, t0 + a);
+  gn.gain.exponentialRampToValueAtTime(0.0001, t0 + t);
+  o.connect(gn).connect(to || master);
+  o.start(t0);
+  o.stop(t0 + t + 0.02);
+}
+
+/** A burst of noise, shaped by a filter: impacts, splashes, wind. One shared NOISE_LEN s of noise, played from a random
+ *  spot (a new buffer filled each call was ~8 a second from the footsteps alone); the gain's fade shapes each burst. */
+const NOISE_LEN = 2;
+let noiseBuf = null;
+function noise({ t = 0.14, g = 0.3, type = "lowpass", f = 1200, f2 = null, q = 1, delay = 0 }) {
+  const c = ensure();
+  if (!c || !enabled) return;
+  if (!noiseBuf) {
+    noiseBuf = c.createBuffer(1, Math.floor(c.sampleRate * NOISE_LEN), c.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  }
+  t = Math.min(t, NOISE_LEN);
+  const src = c.createBufferSource();
+  src.buffer = noiseBuf;
+  const flt = c.createBiquadFilter();
+  flt.type = type;
+  const t0 = now() + delay;
+  flt.frequency.setValueAtTime(f, t0);
+  if (f2) flt.frequency.exponentialRampToValueAtTime(Math.max(40, f2), t0 + t);
+  flt.Q.value = q;
+  const gn = c.createGain();
+  gn.gain.setValueAtTime(g, t0);
+  gn.gain.exponentialRampToValueAtTime(0.0001, t0 + t);
+  src.connect(flt).connect(gn).connect(master);
+  src.start(t0, Math.random() * (NOISE_LEN - t));
+  src.stop(t0 + t);
+}
+
+const S = {
+  // the hero
+  swing: () => (noise({ t: 0.09, g: 0.16, type: "bandpass", f: 2600, f2: 900, q: 1.2 }), tone({ type: "triangle", f: 620, f2: 260, t: 0.08, g: 0.06 })),
+  hit: () => {
+    noise({ t: 0.08, g: 0.3, type: "highpass", f: 1400, f2: 500 });
+    tone({ type: "square", f: 180, f2: 70, t: 0.09, g: 0.16 });
+  },
+  hitHeavy: () => {
+    noise({ t: 0.16, g: 0.4, type: "lowpass", f: 2400, f2: 260 });
+    tone({ type: "sawtooth", f: 140, f2: 46, t: 0.2, g: 0.22 });
+  },
+  clang: () => {
+    tone({ type: "square", f: 1180, f2: 740, t: 0.22, g: 0.12 });
+    tone({ type: "square", f: 1770, f2: 1200, t: 0.16, g: 0.06, delay: 0.01 });
+  },
+  roll: () => noise({ t: 0.22, g: 0.14, type: "lowpass", f: 900, f2: 200 }),
+
+  // Cued by the painted frames (gfx/render.js), not by the buttons: a foot landing, the blade
+  // actually cutting, a roll coming down, the heavy strike hitting the floor. Each is varied a
+  // little every time, so eight footsteps a second never sound like one sample on repeat.
+  step: (ground = "bog") => {
+    const v = 0.85 + Math.random() * 0.3;
+    if (ground === "hall") {
+      // a splash in the shallow water
+      noise({ t: 0.12, g: 0.07, type: "bandpass", f: 2200 * v, f2: 900, q: 1.4 });
+      noise({ t: 0.06, g: 0.04, type: "highpass", f: 4200 * v });
+    } else if (ground === "meadow" || ground === "meadow-night") {
+      // a soft rustle through short grass, and the ground under it
+      noise({ t: 0.09, g: 0.05, type: "bandpass", f: 3600 * v, f2: 2200, q: 0.8 });
+      tone({ type: "sine", f: 105 * v, f2: 65, t: 0.05, g: 0.035 });
+    } else if (ground === "ash") {
+      // grit and cinders underfoot
+      noise({ t: 0.07, g: 0.08, type: "highpass", f: 2600 * v, f2: 1400 });
+      tone({ type: "sine", f: 95 * v, f2: 60, t: 0.06, g: 0.05 });
+    } else {
+      // a soft squelch in the mud
+      noise({ t: 0.1, g: 0.08, type: "lowpass", f: 700 * v, f2: 240 });
+      tone({ type: "sine", f: 120 * v, f2: 70, t: 0.07, g: 0.05 });
+    }
+  },
+  rollLand: () => {
+    noise({ t: 0.16, g: 0.16, type: "lowpass", f: 900, f2: 160 });
+    tone({ type: "sine", f: 130, f2: 55, t: 0.14, g: 0.12 });
+  },
+  whoosh: () => {
+    const v = 0.9 + Math.random() * 0.2;
+    noise({ t: 0.13, g: 0.16, type: "bandpass", f: 3000 * v, f2: 700, q: 1.3 });
+    tone({ type: "triangle", f: 640 * v, f2: 240, t: 0.1, g: 0.05 });
+  },
+  whooshHeavy: () => {
+    noise({ t: 0.22, g: 0.22, type: "bandpass", f: 1900, f2: 380, q: 1.1 });
+    tone({ type: "sawtooth", f: 260, f2: 90, t: 0.2, g: 0.07 });
+  },
+  slamGround: () => {
+    noise({ t: 0.3, g: 0.3, type: "lowpass", f: 1500, f2: 110 });
+    tone({ type: "sine", f: 96, f2: 38, t: 0.34, g: 0.24 });
+    noise({ t: 0.12, g: 0.1, type: "highpass", f: 2800, f2: 1600, delay: 0.02 });
+  },
+  hurt: () => {
+    tone({ type: "sawtooth", f: 300, f2: 90, t: 0.22, g: 0.2 });
+    noise({ t: 0.16, g: 0.18, type: "lowpass", f: 900, f2: 200 });
+  },
+  death: () => {
+    tone({ type: "sawtooth", f: 220, f2: 40, t: 1.1, g: 0.24 });
+    tone({ type: "sine", f: 110, f2: 26, t: 1.4, g: 0.18, delay: 0.05 });
+    noise({ t: 0.9, g: 0.12, type: "lowpass", f: 700, f2: 90 });
+  },
+  drink: () => tone({ type: "sine", f: 300, f2: 760, t: 0.3, g: 0.16 }),
+  heal: () => (tone({ type: "sine", f: 520, f2: 880, t: 0.34, g: 0.12 }), tone({ type: "sine", f: 780, f2: 1320, t: 0.3, g: 0.07, delay: 0.06 })),
+  throw: () => noise({ t: 0.08, g: 0.18, type: "bandpass", f: 3200, f2: 1400, q: 2 }),
+  cast: () => tone({ type: "triangle", f: 220, f2: 900, t: 0.4, g: 0.12 }),
+  roar: () => (tone({ type: "sawtooth", f: 110, f2: 70, t: 0.6, g: 0.14 }), noise({ t: 0.5, g: 0.08, type: "lowpass", f: 600, f2: 200 })),
+  blink: () => (tone({ type: "sine", f: 1200, f2: 300, t: 0.18, g: 0.12 }), noise({ t: 0.12, g: 0.1, type: "highpass", f: 2000 })),
+  frost: () => (tone({ type: "sine", f: 1600, f2: 420, t: 0.5, g: 0.1 }), noise({ t: 0.4, g: 0.1, type: "highpass", f: 3000, f2: 900 })),
+  shieldUp: () => (tone({ type: "triangle", f: 400, f2: 700, t: 0.3, g: 0.12 }), tone({ type: "sine", f: 900, t: 0.4, g: 0.05, delay: 0.05 })),
+  buff: () => tone({ type: "triangle", f: 340, f2: 620, t: 0.35, g: 0.12 }),
+  horn: () => (tone({ type: "sawtooth", f: 150, f2: 110, t: 0.8, g: 0.2 }), tone({ type: "sawtooth", f: 226, f2: 166, t: 0.75, g: 0.1, delay: 0.02 })),
+  use: () => tone({ type: "triangle", f: 500, f2: 700, t: 0.12, g: 0.1 }),
+  deny: () => tone({ type: "square", f: 180, f2: 120, t: 0.12, g: 0.1 }),
+
+  // the bosses
+  lash: () => (noise({ t: 0.18, g: 0.26, type: "bandpass", f: 1800, f2: 400, q: 1.5 }), tone({ type: "sawtooth", f: 420, f2: 110, t: 0.18, g: 0.12 })),
+  hop: () => tone({ type: "sine", f: 160, f2: 420, t: 0.3, g: 0.14 }),
+  slam: () => {
+    noise({ t: 0.4, g: 0.45, type: "lowpass", f: 1400, f2: 90 });
+    tone({ type: "sine", f: 110, f2: 32, t: 0.5, g: 0.3 });
+  },
+  spit: () => noise({ t: 0.16, g: 0.2, type: "bandpass", f: 900, f2: 300, q: 1 }),
+  swarm: () => tone({ type: "sawtooth", f: 90, f2: 130, t: 0.7, g: 0.1 }),
+  fire: () => noise({ t: 0.5, g: 0.2, type: "lowpass", f: 2600, f2: 400 }),
+  nova: () => {
+    noise({ t: 0.6, g: 0.3, type: "lowpass", f: 3000, f2: 200 });
+    tone({ type: "sawtooth", f: 240, f2: 60, t: 0.5, g: 0.16 });
+  },
+  veil: () => noise({ t: 0.9, g: 0.16, type: "bandpass", f: 700, f2: 1800, q: 0.7 }),
+  storm: () => noise({ t: 1.2, g: 0.18, type: "bandpass", f: 1400, q: 0.6 }),
+  wave: () => noise({ t: 0.8, g: 0.26, type: "lowpass", f: 1800, f2: 220 }),
+  chain: () => {
+    for (let i = 0; i < 5; i++) tone({ type: "square", f: 900 + i * 60, f2: 700, t: 0.05, g: 0.05, delay: i * 0.035 });
+  },
+  hands: () => (noise({ t: 0.5, g: 0.2, type: "lowpass", f: 900, f2: 200 }), tone({ type: "sawtooth", f: 80, f2: 160, t: 0.5, g: 0.12 })),
+  flood: () => (noise({ t: 1.6, g: 0.3, type: "lowpass", f: 2400, f2: 180 }), tone({ type: "sine", f: 70, f2: 40, t: 1.4, g: 0.2 })),
+  stagger: () => (tone({ type: "square", f: 300, f2: 120, t: 0.3, g: 0.16 }), noise({ t: 0.3, g: 0.2, type: "lowpass", f: 1800, f2: 300 })),
+  // Sister Cinder's own (her polish pass, 2026-10-20 — VOICES.cinder below; each stands in till its recording has loaded)
+  cinderCast: () => (noise({ t: 1.1, g: 0.1, type: "bandpass", f: 500, f2: 2200, q: 0.8 }), tone({ type: "sine", f: 120, f2: 240, t: 1.0, a: 0.6, g: 0.06 })),
+  fireLanes: () => (noise({ t: 1.0, g: 0.3, type: "lowpass", f: 3200, f2: 300 }), tone({ type: "sawtooth", f: 90, f2: 50, t: 0.6, g: 0.1 })),
+  fireThrow: () => noise({ t: 0.35, g: 0.16, type: "bandpass", f: 900, f2: 3200, q: 1.1 }),
+  fireImpact: () => (noise({ t: 0.6, g: 0.3, type: "lowpass", f: 2600, f2: 200 }), tone({ type: "sine", f: 110, f2: 40, t: 0.35, g: 0.18 })),
+  fireNova: () => (noise({ t: 0.9, g: 0.32, type: "lowpass", f: 3000, f2: 180 }), tone({ type: "sawtooth", f: 200, f2: 50, t: 0.6, g: 0.14 })),
+  ashVeil: () => noise({ t: 1.2, g: 0.16, type: "bandpass", f: 600, f2: 1600, q: 0.7 }),
+  emberBoom: () => (noise({ t: 0.5, g: 0.28, type: "lowpass", f: 3200, f2: 300 }), tone({ type: "square", f: 180, f2: 60, t: 0.2, g: 0.1 })),
+  fireSweep: () => noise({ t: 0.9, g: 0.22, type: "bandpass", f: 700, f2: 2400, q: 0.8 }),
+  fireBolt: () => noise({ t: 0.5, g: 0.18, type: "bandpass", f: 1400, f2: 500, q: 1 }),
+  fireStorm: () => noise({ t: 2.6, g: 0.2, type: "bandpass", f: 900, f2: 1600, q: 0.5 }),
+  fireIgnite: () => noise({ t: 0.6, g: 0.14, type: "lowpass", f: 1600, f2: 300 }),
+  cinderHurt: () => noise({ t: 0.25, g: 0.12, type: "highpass", f: 2600, f2: 1200 }),
+  cinderStagger: () => (noise({ t: 0.5, g: 0.18, type: "bandpass", f: 1200, f2: 400, q: 0.9 }), tone({ type: "sine", f: 300, f2: 120, t: 0.4, g: 0.08 })),
+  cinderPhase: () => (noise({ t: 1.2, g: 0.26, type: "lowpass", f: 2400, f2: 220 }), tone({ type: "sawtooth", f: 80, f2: 160, t: 0.9, g: 0.12 })),
+  cinderDeath: () => (noise({ t: 2.2, g: 0.2, type: "highpass", f: 3000, f2: 600 }), tone({ type: "sine", f: 220, f2: 60, t: 1.6, g: 0.1 })),
+  cinderRise: () => (noise({ t: 1.2, g: 0.22, type: "lowpass", f: 600, f2: 3000 }), tone({ type: "sine", f: 90, f2: 180, t: 1.0, g: 0.1 })),
+  bubblePop: () => (tone({ type: "sine", f: 1400, f2: 2600, t: 0.12, g: 0.14 }), noise({ t: 0.3, g: 0.14, type: "highpass", f: 5000, f2: 2500 })),
+  // (her bubble in the fight, content/bosses.js cinder.moves.seal: its film drawn up round her, and a blow glancing off it)
+  bubbleSeal: () => (tone({ type: "sine", f: 520, f2: 1560, t: 1.2, a: 0.5, g: 0.07 }), noise({ t: 1.1, g: 0.06, type: "bandpass", f: 2400, f2: 5200, q: 0.8 })),
+  bubbleWard: () => (tone({ type: "sine", f: 1900, f2: 1500, t: 0.25, g: 0.1 }), tone({ type: "sine", f: 640, f2: 560, t: 0.3, g: 0.08 })),
+  charge: () => (noise({ t: 1.8, g: 0.22, type: "lowpass", f: 300, f2: 2400 }), tone({ type: "sawtooth", f: 55, f2: 140, t: 1.8, a: 1.0, g: 0.1 })),
+  fireWall: () => (noise({ t: 1.4, g: 0.36, type: "lowpass", f: 3400, f2: 220 }), tone({ type: "sawtooth", f: 80, f2: 40, t: 1.0, g: 0.16 })),
+  phase: () => {
+    tone({ type: "sawtooth", f: 120, f2: 300, t: 0.7, g: 0.18 });
+    noise({ t: 0.6, g: 0.16, type: "lowpass", f: 1200 });
+  },
+  enrage: () => {
+    for (let i = 0; i < 3; i++) tone({ type: "sawtooth", f: 200 + i * 40, f2: 90, t: 0.5, g: 0.12, delay: i * 0.1 });
+  },
+
+  // the frame
+  bell: () => {
+    // A struck bell: a fundamental, a minor third above it, and a long hum underneath.
+    [1, 2.4, 3.2, 4.6].forEach((m, i) => tone({ type: "sine", f: 262 * m, t: 2.6 - i * 0.3, g: 0.2 / (i + 1.4), a: 0.002 }));
+    tone({ type: "sine", f: 131, t: 3.2, g: 0.1 });
+    noise({ t: 0.12, g: 0.12, type: "highpass", f: 4000 });
+  },
+  // The Drowned Hall's great bell answering the small one (sim/world.js stepEntrance; the owner's pick, 2026-10-19: "the hero
+  // rings the SMALL bell, and the BIG bell answers"): first its hum, swelling up under the small bell's ring for 0.8 s (a low
+  // 65 Hz and its octave, as a great bell's air stirs before the clapper lands), then its boom — the recorded bell_strike an
+  // octave down (rate 0.5: no deeper recording of a great bell in public/audio), over a 49 Hz body that rings on for 4 s.
+  bellHum: () => {
+    tone({ type: "sine", f: 65, t: 1.1, a: 0.8, g: 0.12 });
+    tone({ type: "sine", f: 130, t: 1.0, a: 0.75, g: 0.045 });
+    noise({ t: 0.9, g: 0.05, type: "lowpass", f: 260 });
+  },
+  bellBoom: () => {
+    loadSamples();
+    if (!playSample("bell_strike", 0.9, 0, 0.5)) [1, 2.4, 3.2, 4.6].forEach((m, i) => tone({ type: "sine", f: 98 * m, t: 4.2 - i * 0.6, g: 0.22 / (i + 1.4), a: 0.003 }));
+    tone({ type: "sine", f: 49, t: 4.5, a: 0.01, g: 0.17 });
+    tone({ type: "sine", f: 98, t: 3.2, a: 0.01, g: 0.06 });
+    noise({ t: 0.25, g: 0.1, type: "lowpass", f: 700 });
+  },
+  // The Drowned King's geyser welling up in a drain grate (gfx3d/geyser3d.js): a low rumble of water under the floor, rising
+  // over the second before it bursts (no recording of one in public/audio: its burst is water_splash_big, its fall water_splash)
+  geyserRumble: () => {
+    noise({ t: 1.0, g: 0.14, type: "lowpass", f: 140, f2: 420 });
+    tone({ type: "sine", f: 46, f2: 70, t: 1.0, a: 0.6, g: 0.09 });
+  },
+  click: () => (tone({ type: "triangle", f: 700, f2: 1000, t: 0.06, g: 0.1 }), noise({ t: 0.03, g: 0.05, type: "highpass", f: 3000 })),
+  coin: () => (tone({ type: "square", f: 1200, t: 0.06, g: 0.08 }), tone({ type: "square", f: 1800, t: 0.12, g: 0.06, delay: 0.05 })),
+  win: () => [0, 4, 7, 12].forEach((s, i) => tone({ type: "triangle", f: 330 * Math.pow(2, s / 12), t: 0.5, g: 0.12, delay: i * 0.1 })),
+  lose: () => [0, -2, -5, -9].forEach((s, i) => tone({ type: "triangle", f: 330 * Math.pow(2, s / 12), t: 0.7, g: 0.1, delay: i * 0.14 })),
+  open: () => tone({ type: "sine", f: 300, f2: 620, t: 0.25, g: 0.1 }),
+};
+
+// ---------------------------------------------------------------------------------------------
+// Recorded sounds (2026-10-08, the owner: "Add the sounds to the correct places in the game, use the recommended"):
+// generated locally with Stable Audio Open (tools/sfx/gen_sfx.py), the recommended take of each picked by measure
+// (tools/sfx/pick_sfx.py) and kept in public/audio/. Each game sound below plays its file once it has loaded, a little
+// varied in pitch each time (rate ± RATE_JITTER) so a repeated hit never sounds like one sample; until then, or if a
+// file fails, the made-up sound above it plays as before. A function picks the file from the call's argument (the
+// cut: each of the sword's three has its own swing). Gains set them in the mix the made-up sounds were tuned to.
+// (`slam` and `cast` are Gnasher's landing and croak — the only boss in the season; another boss that sends them will
+// want its own.)
+// ---------------------------------------------------------------------------------------------
+const SAMPLES = {
+  whoosh: [(step) => (step === 1 ? "sword_swing_2" : "sword_swing_1"), 0.5],
+  swing: [() => "sword_swing_1", 0.5],
+  whooshHeavy: [() => "sword_swing_1", 0.6], // (the first cut's swing: the owner, 2026-10-08, "The 3rd swing can have the same sound as the first swing")
+  hit: [() => "sword_hit", 0.55],
+  hitHeavy: [() => "sword_hit_heavy", 0.65],
+  clang: [() => "sword_clang", 0.45],
+  // a crit rings over its heavy hit, a parry chimes over its clang (feel.js audio.crit / .parry)
+  crit: [() => "sword_clang", 0.3, 0.02],
+  parry: [() => "bell_small", 0.4],
+  lash: [() => "toad_tongue_lash", 0.6],
+  hop: [() => "toad_hop", 0.55],
+  slam: [() => "toad_land", 0.75], // (his hops: the owner, 2026-10-09, take A of the five heavy landings)
+  arrive: [() => "toad_arrive", 0.9], // (his first landing, after the bell: take C — "a lot heavier")
+  // the chest after a win (sim/world.js stepChest): its landing, and its opening — the reward's chime and glitter
+  chestLand: [() => "chest_land", 0.7],
+  chestOpen: [() => "chest_open", 0.75], // (both the owner's take A of four, 2026-10-09)
+  // and a reward tune under it, on past the loot card (the owner, 2026-10-09: "dopamine music"; tune B, "make it longer":
+  // B played twice, joined; then "add some bass and tempo": 15% faster and re-rendered from itself with a bass line
+  // and drums asked for (tools/sfx/remix_sfx.py): the owner's pick B, level 12 — about half its sound below 150 Hz, 7.4 s
+  chestMusic: [() => "mus_chest", 0.5],
+  spit: [() => "toad_spit", 0.55],
+  cast: [() => "toad_croak", 0.6],
+  roar: [() => "toad_croak", 1.0], // (his arrival's croak at the hero, loud: 2026-10-15)
+  stagger: [() => "toad_hurt", 0.6],
+  swarm: [() => "toad_flies", 0.4],
+  bell: [() => "bell_strike", 0.6],
+  bellSmall: [() => "bell_small", 0.5],
+  roll: [() => "hero_dash", 0.45], // (the owner, 2026-10-09: dash A of five)
+  hurt: [(dmg) => (dmg >= 20 ? "hero_hurt_heavy" : "hero_hurt"), 0.6], // (a big blow, a heavier thud)
+  // 2026-10-09, the owner: "add sounds for more things that we have missed such as when the hero gets hit": his grunt
+  // with every blow (one of three, no made-up twin), his fall, Gnasher's last croak, his rage and his new phase, the
+  // knives, a spell, a spit landing, a shot rolled through
+  hurtVoice: [() => ["hero_grunt_a", "hero_grunt_b", "hero_grunt_c"][Math.floor(Math.random() * 3)], 0.5],
+  death: [() => "hero_death", 0.6],
+  bossDeath: [() => "toad_death", 0.65],
+  enrage: [() => "toad_enrage", 0.6],
+  phase: [() => "toad_phase", 0.6],
+  throw: [() => "knife_throw", 0.5],
+  buff: [() => "magic_buff", 0.45],
+  shieldUp: [() => "magic_buff", 0.45],
+  splat: [() => "goo_splat", 0.5],
+  graze: [() => "sword_swing_2", 0.22],
+  // the jump: up, down, and a low attack passing under him (the owner, 2026-10-09)
+  jump: [() => "hero_jump", 0.5],
+  jumpLand: [() => "hero_jump_land", 0.5],
+  vault: [() => "sword_swing_1", 0.3],
+  drink: [() => "hero_drink", 0.5],
+  // his cry as the blade lands, one of three, a beat after the hit (the owner, 2026-10-08: "add sounds for when hitting
+  // the toad so that we can hear it get hurt"); no made-up twin, and at most one each CRY_GAP s
+  // the Bog Shrine's critters and pools (the owner, 2026-10-15: "add sounds for any missing effect or anything that does
+  // not have a sound yet" — boglife3d.js: birds taking off, a frog diving, a foot or a roll in the water, Gnasher landing in it)
+  birdsFlee: [() => "bird_takeoff", 0.35],
+  frogPlop: [() => "frog_plop", 0.35],
+  wade: [() => "water_splash", 0.22],
+  splashBig: [() => "water_splash_big", 0.55],
+  bossHurt: [() => (now() - lastCry < CRY_GAP ? null : ((lastCry = now()), ["toad_pain_a", "toad_pain_b", "toad_pain_c"][Math.floor(Math.random() * 3)])), 0.5, 0.06],
+  // Sister Cinder (her polish pass, 2026-10-20: tools/sfx/gen_sfx.py, the takes picked by measure — tools/sfx/pick_sfx.py — till
+  // the owner picks his own): her spells, her cries, her opening; loaded with her fight (setVoice)
+  cinderCast: [() => "cinder_cast", 0.35],
+  fireLanes: [() => "fire_lanes", 0.6],
+  fireThrow: [() => "fire_throw", 0.3],
+  fireImpact: [() => "fire_impact", 0.5],
+  fireNova: [() => "fire_nova", 0.65],
+  ashVeil: [() => "ash_veil", 0.5],
+  emberBoom: [() => "ember_boom", 0.55],
+  fireSweep: [() => "fire_sweep", 0.5],
+  fireBolt: [() => "fire_bolt", 0.45],
+  fireStorm: [() => "fire_storm", 0.55],
+  fireIgnite: [() => "fire_ignite", 0.3],
+  cinderHurt: [() => (now() - lastCry < CRY_GAP ? null : ((lastCry = now()), ["cinder_pain_a", "cinder_pain_b", "cinder_pain_c"][Math.floor(Math.random() * 3)])), 0.45, 0.06],
+  cinderStagger: [() => "cinder_stagger", 0.55],
+  cinderPhase: [() => "cinder_phase", 0.6],
+  cinderDeath: [() => "cinder_death", 0.9],
+  cinderRise: [() => "cinder_rise", 0.55],
+  bubblePop: [() => "bubble_pop", 0.8],
+  bubbleSeal: [() => "bubble_seal", 0.6],
+  bubbleWard: [() => "bubble_ward", 0.5],
+  charge: [() => "fire_charge", 0.55],
+  fireWall: [() => "fire_wall", 0.7],
+};
+// A boss's own voice (her polish pass, 2026-10-20): the sim's generic sound names said in his own sounds — or not at all (null),
+// where the view cues each on its own beat (render3d.js / cinder3d.js: her lanes' wall going up, each fireball landing, her
+// fireball thrown; the sim's single "fire" fell on the first of five rain pools only). Before it Sister Cinder cried, died and
+// raged with the toad's croaks and her fireball hit with his goo's splat. Its files load with its fight (setVoice).
+const VOICES = {
+  cinder: { fire: null, splat: null, nova: "fireNova", storm: "fireStorm", veil: "ashVeil", bossHurt: "cinderHurt", bossDeath: "cinderDeath", phase: "cinderPhase", enrage: "cinderPhase", stagger: "cinderStagger" },
+};
+const VOICE_FILES = {
+  cinder: ["cinder_cast", "fire_lanes", "fire_throw", "fire_impact", "fire_nova", "ash_veil", "ember_boom", "fire_sweep", "fire_bolt", "fire_storm", "fire_ignite", "cinder_pain_a", "cinder_pain_b", "cinder_pain_c", "cinder_stagger", "cinder_phase", "cinder_death", "cinder_rise", "bubble_pop", "bubble_seal", "bubble_ward", "fire_charge", "fire_wall"],
+};
+let voice = null;
+let voiceFiles = null;
+/** The fight's boss (his id; null for none): his own voice for the sim's sounds, and his recordings fetched. */
+export function setVoice(id) {
+  voice = VOICES[id] || null;
+  voiceFiles = VOICE_FILES[id] || null;
+  if (samplesAsked && voiceFiles) for (const n of voiceFiles) loadSample(n);
+}
+const CRY_GAP = 0.2;
+let lastCry = -1;
+const RATE_JITTER = 0.04;
+const buffers = new Map(); // file name → AudioBuffer (or null while loading / failed)
+let samplesAsked = false;
+// (the long loops — the two places' air, the fight's music: 1.3 MB of the 2.3 — fetched when first asked for, not with the
+// rest at the first tap: a Gnasher fight never plays two of them. Each fades in over 2 s or more, under which its own load
+// goes unheard; the drone stands in for the music meanwhile)
+function loadSamples() {
+  const c = ensure();
+  if (!c || samplesAsked || typeof fetch !== "function") return;
+  samplesAsked = true;
+  const names = new Set(["sword_swing_1", "sword_swing_2", "sword_hit", "sword_hit_heavy", "sword_clang", "toad_tongue_lash", "toad_hop", "toad_land", "toad_arrive", "chest_land", "chest_open", "mus_chest", "toad_spit", "toad_croak", "toad_hurt", "toad_flies", "bell_strike", "bell_small", "hero_dash", "hero_jump", "hero_jump_land", "hero_hurt", "hero_hurt_heavy", "hero_grunt_a", "hero_grunt_b", "hero_grunt_c", "hero_death", "toad_death", "toad_enrage", "toad_phase", "knife_throw", "magic_buff", "goo_splat", "hero_drink", "toad_pain_a", "toad_pain_b", "toad_pain_c", "bird_takeoff", "frog_plop", "water_splash", "water_splash_big"]);
+  for (const n of names) loadSample(n);
+  for (const n of voiceFiles || []) loadSample(n); // (the fight's boss's own: setVoice)
+  // (and a loop already asked for before audio could start — a fight begun without a tap: it starts once it has loaded)
+  if (ambientWanted) loadSample(ambientName);
+  if (fightWanted) loadSample(FIGHT_MUSIC);
+}
+function loadSample(n) {
+  const c = ensure();
+  if (!c || buffers.has(n) || typeof fetch !== "function") return;
+  buffers.set(n, null);
+  // (the fight music's loop points in its MP3, tools/sfx/loop_music.py)
+  if (n === FIGHT_MUSIC)
+    fetch("audio/mus_fight.json")
+      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then((j) => ((fightLoop = j[FIGHT_MUSIC]), fightWanted && startFightMusic()))
+      .catch(() => {});
+  fetch(`audio/${n}.mp3`)
+    .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(r.status)))
+    .then((b) => c.decodeAudioData(b))
+    .then((buf) => (buffers.set(n, buf), n === ambientName && ambientWanted && startAmbient(ambientName), n === FIGHT_MUSIC && fightWanted && startFightMusic()))
+    .catch(() => buffers.delete(n));
+}
+function playSample(name, gain, delay = 0, rate = 1) {
+  const c = ensure();
+  if (name == null) return true; // (chose to stay quiet: a cry too soon after the last)
+  const buf = buffers.get(name);
+  if (!c || !enabled || !buf) return false;
+  const src = c.createBufferSource();
+  src.buffer = buf;
+  src.playbackRate.value = name.startsWith("mus_") ? 1 : rate * (1 + (Math.random() * 2 - 1) * RATE_JITTER); // (never music: out of tune)
+  const g = c.createGain();
+  g.gain.value = gain;
+  src.connect(g).connect(master);
+  src.start(now() + delay);
+  // (a tune played once — the chest's, 7.4 s — is kept, so leaving the screen can stop it: "Straight on" or Retry began
+  // the next fight under ~4 s of it)
+  if (name.startsWith("mus_")) {
+    const cue = { src, g };
+    musicCues.add(cue);
+    src.onended = () => musicCues.delete(cue);
+  }
+  return true;
+}
+const musicCues = new Set();
+/** Every tune played once (musicCues) faded out over `sec`: a fight left, a screen changed. */
+export function stopMusicCues(sec = 0.3) {
+  if (!ac) return;
+  for (const { src, g } of musicCues) {
+    g.gain.cancelScheduledValues(now());
+    g.gain.setValueAtTime(Math.max(0.0001, g.gain.value), now());
+    g.gain.exponentialRampToValueAtTime(0.0001, now() + sec);
+    try {
+      src.stop(now() + sec + 0.02);
+    } catch {
+      // not started yet, or already stopped
+    }
+  }
+  musicCues.clear();
+}
+
+// ---------------------------------------------------------------------------------------------
+// The garden's air under a fight (the owner, 2026-10-08: "create some very light ambient sound in the background"): a
+// soft breeze and far-off birds (public/audio/amb_meadow.mp3, made as a loop: its end crossfaded into its start), looped
+// quietly — AMBIENT_GAIN — faded in over 2 s and out over 1 s. Looped between its first and last real sound: an MP3's
+// encoder pads both ends with a little silence, which would click each time round.
+// ---------------------------------------------------------------------------------------------
+const AMBIENT_GAIN = 0.16;
+let ambient = null;
+let ambientWanted = false;
+// (which air: the garden's by default, a place's own when it has one — the Bog Shrine's frogs, crickets and dripping water,
+// amb_bog, 2026-10-15)
+let ambientName = "amb_meadow";
+export function startAmbient(name = "amb_meadow") {
+  ambientWanted = true;
+  ambientName = name;
+  const c = ensure();
+  loadSamples();
+  loadSample(name);
+  const buf = buffers.get(name);
+  if (!c || !buf || ambient) return; // (not loaded yet: it starts when it has)
+  const d = buf.getChannelData(0);
+  let a = 0, z = d.length - 1;
+  while (a < d.length && Math.abs(d[a]) < 1e-4) a++;
+  while (z > a && Math.abs(d[z]) < 1e-4) z--;
+  const src = c.createBufferSource();
+  src.buffer = buf;
+  src.loop = true;
+  src.loopStart = a / buf.sampleRate;
+  src.loopEnd = z / buf.sampleRate;
+  const g = c.createGain();
+  g.gain.setValueAtTime(0.0001, now());
+  g.gain.exponentialRampToValueAtTime(AMBIENT_GAIN, now() + 2);
+  src.connect(g).connect(master);
+  src.start(now(), src.loopStart);
+  ambient = { src, g };
+}
+export function stopAmbient() {
+  ambientWanted = false;
+  if (!ambient) return;
+  const { src, g } = ambient;
+  ambient = null;
+  g.gain.cancelScheduledValues(now());
+  g.gain.setValueAtTime(Math.max(0.0001, g.gain.value), now());
+  g.gain.exponentialRampToValueAtTime(0.0001, now() + 1);
+  src.stop(now() + 1.05);
+}
+// ---------------------------------------------------------------------------------------------
+// The fight's music (the owner, 2026-10-11: "Add the phase music", then of the takes made for it: "2a is good, play that in
+// the background of the boss fight, but keep it very subtle and low"): one loop under the whole fight
+// (public/audio/mus_fight.mp3 — gen_sfx.py mus_loop_p2_a take 2, cut to 16 bars at 120 bpm by tools/sfx/loop_music.py, its
+// loop points in mus_fight.json), faded in over FIGHT_FADE s and out on the kill. Through the music knob (musicGain 0.3) at
+// FIGHT_GAIN: about a tenth of full, under the meadow's air. While it has not loaded the old drone plays on.
+// ---------------------------------------------------------------------------------------------
+const FIGHT_MUSIC = "mus_fight";
+const FIGHT_GAIN = 0.3;
+const FIGHT_FADE = 2.5;
+let fightLoop = null;
+let fightWanted = false;
+let fightNow = null; // { src, g }
+export function startFightMusic() {
+  fightWanted = true;
+  const c = ensure();
+  loadSamples();
+  loadSample(FIGHT_MUSIC);
+  const buf = buffers.get(FIGHT_MUSIC);
+  if (!c || !buf || !fightLoop || fightNow) return; // (not loaded yet: it starts when it has)
+  stopDrone(); // (the music has come: the drone stood in for it)
+  const src = c.createBufferSource();
+  src.buffer = buf;
+  src.loop = true;
+  src.loopStart = fightLoop.start;
+  src.loopEnd = fightLoop.end;
+  const g = c.createGain();
+  g.gain.setValueAtTime(0.0001, now());
+  g.gain.exponentialRampToValueAtTime(FIGHT_GAIN, now() + FIGHT_FADE);
+  src.connect(g).connect(musicGain);
+  src.start(now(), fightLoop.start);
+  fightNow = { src, g };
+}
+/** The fight's music faded out over `sec` (the kill, the fight left). */
+export function stopFightMusic(sec = 1) {
+  fightWanted = false;
+  if (!fightNow) return;
+  const { src, g } = fightNow;
+  fightNow = null;
+  g.gain.cancelScheduledValues(now());
+  g.gain.setValueAtTime(Math.max(0.0001, g.gain.value), now());
+  g.gain.exponentialRampToValueAtTime(0.0001, now() + sec);
+  src.stop(now() + sec + 0.05);
+}
+// (the small bell has no made-up twin: the big one stands in until it has loaded)
+S.bellSmall = (...a) => S.bell(...a);
+// (nor his arrival: his hops' landing stands in)
+S.arrive = (...a) => S.slam(...a);
+// (nor the chest's: the heavy's floor slam, and the win's fanfare)
+S.chestLand = (...a) => S.slamGround(...a);
+S.chestOpen = (...a) => S.win(...a);
+
+export const sfx = new Proxy(
+  {},
+  {
+    get: (_, k) => {
+      if (voice && k in voice) {
+        if (voice[k] === null) return () => {};
+        k = voice[k];
+      }
+      const made = S[k];
+      const smp = SAMPLES[k];
+      if (!smp) return made || (() => {});
+      return (...args) => {
+        loadSamples();
+        if (!playSample(smp[0](...args), smp[1], smp[2] || 0)) made?.(...args);
+      };
+    },
+  }
+);
+
+// ---------------------------------------------------------------------------------------------
+// A slow drone under the fight: two detuned notes and a heartbeat that quickens with the enrage.
+// ---------------------------------------------------------------------------------------------
+export function startDrone(root = 98) {
+  const c = ensure();
+  if (!c) return () => {};
+  stopDrone();
+  const nodes = [];
+  const mk = (f, type, g, pan) => {
+    const o = c.createOscillator();
+    const gn = c.createGain();
+    o.type = type;
+    o.frequency.value = f;
+    gn.gain.value = 0;
+    gn.gain.linearRampToValueAtTime(g, now() + 2.5);
+    const p = c.createStereoPanner ? c.createStereoPanner() : null;
+    if (p) {
+      p.pan.value = pan;
+      o.connect(gn).connect(p).connect(musicGain);
+    } else o.connect(gn).connect(musicGain);
+    o.start();
+    nodes.push([o, gn]);
+  };
+  mk(root, "sine", 0.18, -0.3);
+  mk(root * 1.005, "sine", 0.14, 0.3);
+  mk(root * 1.5, "triangle", 0.05, 0);
+  const lfo = c.createOscillator();
+  const lg = c.createGain();
+  lfo.frequency.value = 0.07;
+  lg.gain.value = 3;
+  lfo.connect(lg).connect(nodes[0][0].frequency);
+  lfo.start();
+  nodes.push([lfo, lg]);
+  musicStop = () => {
+    for (const [o, gn] of nodes) {
+      try {
+        gn.gain.cancelScheduledValues(now());
+        gn.gain.setValueAtTime(gn.gain.value, now());
+        gn.gain.linearRampToValueAtTime(0, now() + 0.6);
+        o.stop(now() + 0.7);
+      } catch {
+        /* already stopped */
+      }
+    }
+  };
+  return musicStop;
+}
+export function stopDrone() {
+  if (musicStop) musicStop();
+  musicStop = null;
+}
+
+/** A freeze's muffle: the low-pass dipped to `floor` Hz for `sec` and opened again (feel.js audio.duck). */
+export function duck(sec, floor) {
+  if (!lowpass || !ac || !(floor > 0)) return;
+  const f = lowpass.frequency, t = now();
+  f.cancelScheduledValues(t);
+  f.setValueAtTime(floor, t);
+  f.setValueAtTime(floor, t + sec);
+  f.exponentialRampToValueAtTime(20000, t + sec + 0.12);
+}

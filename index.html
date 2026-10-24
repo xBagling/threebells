@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#0b0812" />
+    <title>Three Bells · a daily boss fight</title>
+    <meta name="description" content="Three bosses a week. One life a day. Roll through the tells, learn the fight, and come back tomorrow." />
+    <meta name="color-scheme" content="dark" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <link rel="stylesheet" href="css/fonts.css?v=48fd128-df87a96f" />
+    <link rel="stylesheet" href="css/style.css?v=48fd128-df87a96f" />
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="modulepreload" href="js/main.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/gfx/atlas.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/gfx/art/adds.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/gfx/pixel.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/util.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/gfx/art/decor.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/gfx/art/fx.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/gfx/art/icons.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/gfx/art/arm-icons.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/gfx/art/title.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/gfx/painted.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/release.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/content/bosses.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/sim/hazards.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/input.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/gfx/iso.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/config.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/sim/player.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/sim/arena.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/content/arenas.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/content/walkedits.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/content/weapons.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/store.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/daily.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/content/blessings.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/content/items.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/ui/title.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/audio.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/ui/camp.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/ui/touch.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/ui/domwrite.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/ui/settings.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/ui/camp2.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/sim/world.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/feel.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/gfx/camera.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/ui/fight.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/gfx/feelview.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/ui/hud.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/ui/admin.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/ui/mapedit.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/ui/screens.js?v=48fd128-df87a96f" />
+    <link rel="modulepreload" href="js/view-pref.js?v=48fd128-df87a96f" />
+  </head>
+  <body>
+    <div id="loading" class="loading">
+      <div class="lo-bells" aria-hidden="true"><i></i><i></i><i></i></div>
+      <h1 class="lo-name">Three Bells</h1>
+      <div class="lo-track"><i id="load-bar"></i></div>
+      <div class="lo-what" id="load-what">painting the hill</div>
+    </div>
+    <main id="app"></main>
+    <div id="modal"></div>
+    <noscript><p style="color: #cfc8dd; font: 16px/1.6 system-ui; padding: 40px; text-align: center">Three Bells needs JavaScript — the whole game, art included, is drawn in the browser.</p></noscript>
+    <script src="js/boot.js?v=48fd128-df87a96f"></script>
+  </body>
+</html>

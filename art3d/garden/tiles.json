@@ -1,0 +1,85 @@
+{
+ "grass": {
+  "file": "meadow-grass-tile",
+  "w": 512,
+  "h": 512,
+  "png": {
+   "bytes": 9953,
+   "fnv1a32": "7bb38174"
+  },
+  "webp": {
+   "bytes": 4542,
+   "fnv1a32": "9825b0c4"
+  },
+  "mean": [
+   0.03303,
+   0.0656,
+   0.01227
+  ],
+  "repeat": 48,
+  "map": "screen",
+  "cap": {
+   "ratio": [
+    0.7299,
+    1.37
+   ],
+   "gamma": 0.446,
+   "why": "a ratio under the markings: no texel further from the mean than the flat lawn's biggest neighbour step (1.37x), critique #6"
+  }
+ },
+ "terrace": {
+  "file": "meadow-terrace-tile",
+  "w": 1024,
+  "h": 512,
+  "png": {
+   "bytes": 50828,
+   "fnv1a32": "18cec31f"
+  },
+  "webp": {
+   "bytes": 18532,
+   "fnv1a32": "2815d98f"
+  },
+  "mean": [
+   0.02813,
+   0.05792,
+   0.03368
+  ],
+  "meanOver": "slab faces only (not grout or tufts)",
+  "repeat": 40,
+  "variants": 2,
+  "slabs": [
+   4,
+   5
+  ],
+  "grout": "#0e140d",
+  "groutTexels": 8
+ },
+ "hash": "FNV-1a 32-bit over the file's bytes",
+ "floor": {
+  "file": "meadow-floor",
+  "w": 1024,
+  "h": 1024,
+  "png": {
+   "bytes": 428603,
+   "fnv1a32": "3dd3c31c"
+  },
+  "webp": {
+   "bytes": 241594,
+   "fnv1a32": "fa4c0d5c"
+  },
+  "over": 160.0,
+  "rows": "+y (three +z); texel (i, j) at x, y = -160 + (i, j + .5) x 320 / 1024",
+  "base": "#2e422e",
+  "terraceBase": [
+   0.027321,
+   0.05448,
+   0.027321
+  ],
+  "slabs": [
+   "#2c4030",
+   "#3a5036",
+   "#223020"
+  ],
+  "what": "lawn: albedo (the mid greens, contact bands, petals); terrace: a ratio over terraceBase on M4a's terrace (footprint contact beyond the outer foot, warm specks) (tools/3d/floor.py)"
+ }
+}

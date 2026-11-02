@@ -6,7 +6,7 @@ import {
   CLASSIC2,
   BOSS_ORDER2,
   MODELLED2
-} from "./main-8rd3fg5z.js?v=3d5411a-058309b9";
+} from "./main-8rd3fg5z.js?v=8a852a6-6e389bbf";
 export {
   BOSSES2 as BOSSES,
   BOSS_ORDER2 as BOSS_ORDER,

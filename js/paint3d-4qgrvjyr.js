@@ -7,7 +7,7 @@ import {
   cellTable2,
   barkCells2,
   atlasCells2
-} from "./main-rbjqmxbv.js?v=3d5411a-058309b9";
+} from "./main-rbjqmxbv.js?v=8a852a6-6e389bbf";
 import"./main-g90df43y.js";
 import"./main-6mhe1mqq.js";
 export {

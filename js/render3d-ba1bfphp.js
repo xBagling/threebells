@@ -70,7 +70,7 @@ import {
   Zs,
   Du,
   Fu
-} from "./main-6mhe1mqq.js?v=3d5411a-058309b9";
+} from "./main-6mhe1mqq.js?v=8a852a6-6e389bbf";
 import {
   BACK,
   RIGHT,
@@ -78,7 +78,7 @@ import {
   H_TO_3D,
   texelFactor,
   cameraFrame
-} from "./main-g90df43y.js?v=3d5411a-058309b9";
+} from "./main-g90df43y.js?v=8a852a6-6e389bbf";
 import {
   __export,
   clamp,
@@ -134,10 +134,10 @@ import {
   placeOf,
   sfx,
   FEEL
-} from "./main-8rd3fg5z.js?v=3d5411a-058309b9";
+} from "./main-8rd3fg5z.js?v=8a852a6-6e389bbf";
 import {
   BOSS_MODELS2
-} from "./main-cqacbqc4.js?v=3d5411a-058309b9";
+} from "./main-cqacbqc4.js?v=8a852a6-6e389bbf";
 import {
   makeLookUniforms,
   GROUND_SHADE_LIFT,
@@ -198,32 +198,32 @@ import {
   cellTable2,
   barkCells2,
   atlasCells2
-} from "./main-rbjqmxbv.js?v=3d5411a-058309b9";
+} from "./main-rbjqmxbv.js?v=8a852a6-6e389bbf";
 import {
   pictureLoader
-} from "./main-74g1a3n8.js?v=3d5411a-058309b9";
+} from "./main-74g1a3n8.js?v=8a852a6-6e389bbf";
 import {
   lineOf2,
   linedIds2
-} from "./main-ybx00bvq.js?v=3d5411a-058309b9";
+} from "./main-ybx00bvq.js?v=8a852a6-6e389bbf";
 import {
   makeBackdrop2,
   makeBackdropFx2,
   makeRefBackdrop2,
   makeRefFlames2,
   makeRefBell2
-} from "./main-yj2wy693.js?v=3d5411a-058309b9";
+} from "./main-yj2wy693.js?v=8a852a6-6e389bbf";
 import"./main-3vr08xr3.js";
 import {
   makeCampBackdrop2,
   makeCampFx2
-} from "./main-d9sttapv.js?v=3d5411a-058309b9";
+} from "./main-d9sttapv.js?v=8a852a6-6e389bbf";
 import {
   unitQuad,
   planeQuad,
   perInstance,
   NOISE_GLSL
-} from "./main-jv075w3r.js?v=3d5411a-058309b9";
+} from "./main-jv075w3r.js?v=8a852a6-6e389bbf";
 
 // site/js/gfx3d/anim/sword-tracks.js
 var exports_sword_tracks = {};
@@ -586,6 +586,48 @@ var FINAL = {
     }
   `
 };
+var COMBINE_FRAG = FINAL.fragmentShader.replace(`      vec2 X = vec2(gl_FragCoord.x, uView.y - gl_FragCoord.y);
+      vec2 t = (X - uOff) / uK;
+      if (uFilt > 1.5) {
+        // Sharp-bilinear: flat across each texel, a soft step one display pixel wide at its edge.
+        vec2 q = t - 0.5;
+        vec2 i = floor(q);
+        vec2 fr = clamp((q - i - 0.5) * max(uK, 1.0) + 0.5, 0.0, 1.0);
+        t = i + fr + 0.5;
+      }
+      vec2 uv = vec2(t.x / uTex.x, 1.0 - t.y / uTex.y);`, `      // (one fragment a texel: its middle, and where on the display that middle falls, GL's y up)
+      vec2 uv = gl_FragCoord.xy / uTex;
+      vec2 X = vec2(gl_FragCoord.x, uTex.y - gl_FragCoord.y) * uK + uOff;
+      vec2 FC = vec2(X.x, uView.y - X.y);`).replace("vec2 q = (gl_FragCoord.xy - uFocus) / uView.y;", "vec2 q = (FC - uFocus) / uView.y;").replace("vec2 qe = (gl_FragCoord.xy - uFocus) / uView;", "vec2 qe = (FC - uFocus) / uView;").replace(`      vec2 bp = mod(floor(gl_FragCoord.xy), 4.0);
+      float bay = mod(bp.x * 4.0 + bp.y * 11.0, 16.0) / 16.0 - 0.47;
+      c += bay / 255.0;`, "      // (the dither: in the enlarging pass, per display pixel)");
+if (!COMBINE_FRAG.includes("vec2 FC") || COMBINE_FRAG.includes("gl_FragCoord.xy - uFocus") || COMBINE_FRAG.includes("bay / 255.0"))
+  throw new Error("post3d.js: the combine pass was not made from the final pass");
+var UPSCALE_FRAG = `
+  uniform sampler2D tComb;
+  uniform vec2 uTex;
+  uniform vec2 uOff;
+  uniform vec2 uView;
+  uniform float uK;
+  uniform float uFilt;
+  void main() {
+    // (the final pass's own enlarging, exactly)
+    vec2 X = vec2(gl_FragCoord.x, uView.y - gl_FragCoord.y);
+    vec2 t = (X - uOff) / uK;
+    if (uFilt > 1.5) {
+      vec2 q = t - 0.5;
+      vec2 i = floor(q);
+      vec2 fr = clamp((q - i - 0.5) * max(uK, 1.0) + 0.5, 0.0, 1.0);
+      t = i + fr + 0.5;
+    }
+    vec2 uv = vec2(t.x / uTex.x, 1.0 - t.y / uTex.y);
+    vec3 c = texture2D(tComb, uv).rgb;
+    vec2 bp = mod(floor(gl_FragCoord.xy), 4.0);
+    float bay = mod(bp.x * 4.0 + bp.y * 11.0, 16.0) / 16.0 - 0.47;
+    c += bay / 255.0;
+    gl_FragColor = vec4(c, 1.0);
+  }
+`;
 var DOWN = `
   uniform sampler2D tSrc; uniform vec2 uTexel; uniform float uFirst;
   varying vec2 vUv;
@@ -626,6 +668,18 @@ function makePost(renderer, aa = {}) {
   const rt = (w, h) => new Gt(Math.max(1, w), Math.max(1, h), { minFilter: bt, magFilter: bt, generateMipmaps: false, depthBuffer: false, type: pn });
   const mat = new Kt({ uniforms: FINAL.uniforms(), vertexShader: FINAL.vertexShader, fragmentShader: FINAL.fragmentShader, depthTest: false, depthWrite: false, toneMapped: false });
   const quad = new Fu(mat);
+  let comb = null;
+  const combMat = new Kt({ uniforms: mat.uniforms, vertexShader: FINAL.vertexShader, fragmentShader: COMBINE_FRAG, depthTest: false, depthWrite: false, toneMapped: false });
+  const combQuad = new Fu(combMat);
+  const upMatF = new Kt({
+    uniforms: { tComb: { value: null }, uTex: mat.uniforms.uTex, uOff: mat.uniforms.uOff, uView: mat.uniforms.uView, uK: mat.uniforms.uK, uFilt: mat.uniforms.uFilt },
+    vertexShader: FINAL.vertexShader,
+    fragmentShader: UPSCALE_FRAG,
+    depthTest: false,
+    depthWrite: false,
+    toneMapped: false
+  });
+  const upQuadF = new Fu(upMatF);
   function ensure(W, H) {
     if (scene && scene.width === W && scene.height === H)
       return;
@@ -644,6 +698,8 @@ function makePost(renderer, aa = {}) {
     for (const l of levels)
       l.dispose();
     levels = [rt(W >> 1, H >> 1), rt(W >> 2, H >> 2), rt(W >> 3, H >> 3), rt(W >> 2, H >> 2), rt(W >> 1, H >> 1)];
+    comb?.dispose();
+    comb = null;
   }
   function bloom() {
     let src = emissive.texture;
@@ -678,6 +734,8 @@ function makePost(renderer, aa = {}) {
       scene?.dispose();
       scene?.depthTexture?.dispose();
       scene = null;
+      comb?.dispose();
+      comb = null;
     },
     get scene() {
       return scene;
@@ -728,6 +786,16 @@ function makePost(renderer, aa = {}) {
       u.uVigCol.value.set(...m.vigCol ?? [0.55, 0.66, 0.66]);
       if (grade.focus)
         u.uFocus.value.set(grade.focus[0], vh - grade.focus[1]);
+      if (f.k >= 2 && filt === 2 && !aa.fxaa) {
+        if (!comb)
+          comb = new Gt(scene.width, scene.height, { minFilter: sceneFilter, magFilter: sceneFilter, generateMipmaps: false, depthBuffer: false, type: pn });
+        renderer.setRenderTarget(comb);
+        combQuad.render(renderer);
+        upMatF.uniforms.tComb.value = comb.texture;
+        renderer.setRenderTarget(null);
+        upQuadF.render(renderer);
+        return;
+      }
       renderer.setRenderTarget(null);
       quad.render(renderer);
     },
@@ -741,6 +809,11 @@ function makePost(renderer, aa = {}) {
         l.dispose();
       mat.dispose();
       quad.dispose();
+      comb?.dispose();
+      combMat.dispose();
+      combQuad.dispose();
+      upMatF.dispose();
+      upQuadF.dispose();
       downMat.dispose();
       upMat.dispose();
       downQuad.dispose();

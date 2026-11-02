@@ -70,7 +70,7 @@ import {
   Zs,
   Du,
   Fu
-} from "./main-6mhe1mqq.js?v=8a852a6-6e389bbf";
+} from "./main-6mhe1mqq.js?v=30e8e0e-97b8dd9b";
 import {
   BACK,
   RIGHT,
@@ -78,7 +78,7 @@ import {
   H_TO_3D,
   texelFactor,
   cameraFrame
-} from "./main-g90df43y.js?v=8a852a6-6e389bbf";
+} from "./main-g90df43y.js?v=30e8e0e-97b8dd9b";
 import {
   __export,
   clamp,
@@ -134,10 +134,10 @@ import {
   placeOf,
   sfx,
   FEEL
-} from "./main-8rd3fg5z.js?v=8a852a6-6e389bbf";
+} from "./main-8rd3fg5z.js?v=30e8e0e-97b8dd9b";
 import {
   BOSS_MODELS2
-} from "./main-cqacbqc4.js?v=8a852a6-6e389bbf";
+} from "./main-cqacbqc4.js?v=30e8e0e-97b8dd9b";
 import {
   makeLookUniforms,
   GROUND_SHADE_LIFT,
@@ -198,32 +198,32 @@ import {
   cellTable2,
   barkCells2,
   atlasCells2
-} from "./main-rbjqmxbv.js?v=8a852a6-6e389bbf";
+} from "./main-rbjqmxbv.js?v=30e8e0e-97b8dd9b";
 import {
   pictureLoader
-} from "./main-74g1a3n8.js?v=8a852a6-6e389bbf";
+} from "./main-74g1a3n8.js?v=30e8e0e-97b8dd9b";
 import {
   lineOf2,
   linedIds2
-} from "./main-ybx00bvq.js?v=8a852a6-6e389bbf";
+} from "./main-ybx00bvq.js?v=30e8e0e-97b8dd9b";
 import {
   makeBackdrop2,
   makeBackdropFx2,
   makeRefBackdrop2,
   makeRefFlames2,
   makeRefBell2
-} from "./main-yj2wy693.js?v=8a852a6-6e389bbf";
+} from "./main-3tm083bp.js?v=30e8e0e-97b8dd9b";
 import"./main-3vr08xr3.js";
 import {
   makeCampBackdrop2,
   makeCampFx2
-} from "./main-d9sttapv.js?v=8a852a6-6e389bbf";
+} from "./main-d9sttapv.js?v=30e8e0e-97b8dd9b";
 import {
   unitQuad,
   planeQuad,
   perInstance,
   NOISE_GLSL
-} from "./main-jv075w3r.js?v=8a852a6-6e389bbf";
+} from "./main-jv075w3r.js?v=30e8e0e-97b8dd9b";
 
 // site/js/gfx3d/anim/sword-tracks.js
 var exports_sword_tracks = {};
@@ -1704,6 +1704,54 @@ function makeHazardLayer() {
   };
 }
 
+// site/js/gfx3d/skelcache.js
+var patched = new WeakSet;
+var seen = new WeakMap;
+function same(sk) {
+  const { bones, boneInverses: inv } = sk, n = bones.length;
+  let s = seen.get(sk);
+  if (!s || s.n !== n) {
+    seen.set(sk, s = { w: new Float64Array(n * 16), i: new Float64Array(n * 16), n, ok: false });
+    return false;
+  }
+  if (!s.ok)
+    return false;
+  const w = s.w, iv = s.i;
+  for (let b = 0;b < n; b++) {
+    const e = bones[b] ? bones[b].matrixWorld.elements : null, f = inv[b].elements, o = b * 16;
+    if (!e)
+      return false;
+    for (let k = 0;k < 16; k++)
+      if (w[o + k] !== e[k] || iv[o + k] !== f[k])
+        return false;
+  }
+  return true;
+}
+function remember(sk) {
+  const s = seen.get(sk), { bones, boneInverses: inv } = sk;
+  for (let b = 0;b < s.n; b++) {
+    const e = bones[b] ? bones[b].matrixWorld.elements : null, f = inv[b].elements, o = b * 16;
+    if (!e)
+      return;
+    for (let k = 0;k < 16; k++)
+      s.w[o + k] = e[k], s.i[o + k] = f[k];
+  }
+  s.ok = true;
+}
+function cacheSkeletonUpdates(skeleton) {
+  const proto = skeleton && Object.getPrototypeOf(skeleton);
+  if (!proto || patched.has(proto) || typeof proto.update !== "function")
+    return;
+  patched.add(proto);
+  const update = proto.update;
+  proto.update = function() {
+    if (same(this) && this.boneMatrices)
+      return;
+    update.call(this);
+    remember(this);
+  };
+}
+
 // site/js/gfx/particles.js
 var MAX = 900;
 function makeParticles(seed = 7) {
@@ -2361,6 +2409,24 @@ function makeOverlay(canvasEl) {
   const slot = new WeakMap;
   const SIDE = [0, 1, -1], ROW = 17;
   const drawn = [];
+  const fonts = new Map, widths = new Map;
+  const fontOf = (px) => {
+    let s = fonts.get(px);
+    if (!s)
+      fonts.set(px, s = `700 ${px}px "Fraunces", Georgia, serif`);
+    return s;
+  };
+  const widthOf = (font, text) => {
+    let m = widths.get(font);
+    if (!m)
+      widths.set(font, m = new Map);
+    let wd = m.get(text);
+    if (wd === undefined)
+      m.set(text, wd = ctx.measureText(text).width);
+    return wd;
+  };
+  if (typeof document !== "undefined" && document.fonts?.addEventListener)
+    document.fonts.addEventListener("loadingdone", () => widths.clear());
   return {
     canvas: cv,
     resize(w, h) {
@@ -2382,9 +2448,11 @@ function makeOverlay(canvasEl) {
       const [ox, oy] = cam.origin();
       ctx.textAlign = "center";
       ctx.lineJoin = "round";
-      ctx.font = `700 ${Math.round(11 * z)}px "Fraunces", Georgia, serif`;
-      const step = ctx.measureText("00").width * 1.5 + 4 * z;
-      const digit = ctx.measureText("0").width, digitH = 11 * z * 0.8;
+      const font0 = fontOf(Math.round(11 * z));
+      ctx.font = font0;
+      const step = widthOf(font0, "00") * 1.5 + 4 * z;
+      const digit = widthOf(font0, "0"), digitH = 11 * z * 0.8;
+      let font = font0;
       const base = (f) => cam.proj ? cam.toBuffer(f.x, f.y) : [ox + toScreen(f.x, f.y)[0] * z, oy + toScreen(f.x, f.y)[1] * z];
       drawn.length = 0;
       for (const f of w.floaters) {
@@ -2419,10 +2487,10 @@ function makeOverlay(canvasEl) {
         if (FEEL.numbers.pop || FEEL.numbers.size) {
           const pop = 1 + FEEL.numbers.pop * Math.max(0, 1 - f.t / 0.12);
           const big = 1 + FEEL.numbers.size * Math.min(1, (parseFloat(f.v) || 0) / 40);
-          ctx.font = `700 ${Math.round(11 * z * pop * big)}px "Fraunces", Georgia, serif`;
+          ctx.font = font = fontOf(Math.round(11 * z * pop * big));
         }
         {
-          const hw2 = ctx.measureText(f.v).width / 2 + 4 * z;
+          const hw2 = widthOf(font, f.v) / 2 + 4 * z;
           x = Math.min(cv.width - hw2, Math.max(hw2, x));
         }
         const dealt = f.kind === "dmg";
@@ -2441,12 +2509,13 @@ function makeOverlay(canvasEl) {
         }
         ctx.fillText(f.v, x, y);
         {
-          const mw = ctx.measureText(f.v).width, fh = parseFloat(ctx.font.split(" ")[1]);
           const sg = 1 + FEEL.numbers.size * Math.min(1, (parseFloat(f.v) || 0) / 40), sw = digit * String(f.v).length * sg / 2;
           if (drawn.length < 96)
             drawn.push([x - sw, y - digitH * sg, x + sw, y]);
-          if (globalThis.__numRects)
+          if (globalThis.__numRects) {
+            const mw = widthOf(font, f.v), fh = parseFloat(ctx.font.split(" ")[1]);
             globalThis.__numRects.push([x - mw / 2, y - fh * 0.8, mw, fh * 0.8, f]);
+          }
         }
       }
       ctx.globalAlpha = 1;
@@ -7150,6 +7219,179 @@ function makeHold({ root = null, bones, sampler, clips, names, rig, extra = {} }
   };
 }
 
+// site/js/gfx3d/bounds3d.js
+var m4 = new Pe;
+var L = new Pe;
+var v3 = new U;
+function stretchOf(e) {
+  const ax = e[0], ay = e[1], az = e[2], bx = e[4], by = e[5], bz = e[6], cx = e[8], cy = e[9], cz = e[10];
+  const na = ax * ax + ay * ay + az * az, nb = bx * bx + by * by + bz * bz, nc = cx * cx + cy * cy + cz * cz;
+  const ab = ax * bx + ay * by + az * bz, ac = ax * cx + ay * cy + az * cz, bc = bx * cx + by * cy + bz * cz;
+  const tol = 0.000001 * (na + nb + nc + 0.000000000000000000000000000001);
+  if (Math.abs(ab) <= tol && Math.abs(ac) <= tol && Math.abs(bc) <= tol)
+    return Math.sqrt(Math.max(na, nb, nc)) * (1 + 0.000001);
+  return Math.sqrt(na + nb + nc);
+}
+var SKIN = new WeakMap;
+var sameBind = (a, b) => {
+  for (let i = 0;i < 16; i++)
+    if (a[i] !== b[i])
+      return false;
+  return true;
+};
+function skinOf(m) {
+  const g = m.geometry, pos = g.attributes.position, si = g.attributes.skinIndex, sw = g.attributes.skinWeight;
+  const sk = m.skeleton, morphs = g.morphAttributes?.position || [];
+  let s = SKIN.get(m);
+  if (s && s.g === g && s.ver === pos.version && s.sk === sk && s.nm === morphs.length && sameBind(s.bind, m.bindMatrix.elements))
+    return s;
+  const nb = sk.bones.length, n = pos.count;
+  const sum = new Float64Array(nb * 3), cnt = new Uint32Array(nb);
+  let bad = !si || !sw;
+  for (let i = 0;i < n && !bad; i++) {
+    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+    let wsum = 0;
+    for (let k = 0;k < 4; k++) {
+      const w = sw.getComponent(i, k);
+      wsum += w;
+      if (w <= 0)
+        continue;
+      const b = si.getComponent(i, k);
+      if (b < 0 || b >= nb) {
+        bad = true;
+        break;
+      }
+      sum[b * 3] += x, sum[b * 3 + 1] += y, sum[b * 3 + 2] += z, cnt[b]++;
+    }
+    if (Math.abs(wsum - 1) > 0.002)
+      bad = true;
+  }
+  const used = [];
+  for (let b = 0;b < nb; b++)
+    if (cnt[b])
+      used.push(b);
+  const U = used.length, idx = new Int32Array(nb).fill(-1);
+  used.forEach((b, u) => idx[b] = u);
+  const c = new Float64Array(U * 3), R = new Float64Array(U), D = new Float64Array(U * morphs.length);
+  for (let u = 0;u < U; u++) {
+    const b = used[u];
+    c[u * 3] = sum[b * 3] / cnt[b], c[u * 3 + 1] = sum[b * 3 + 1] / cnt[b], c[u * 3 + 2] = sum[b * 3 + 2] / cnt[b];
+  }
+  const rel = g.morphTargetsRelative;
+  for (let i = 0;i < n && !bad; i++) {
+    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+    for (let k = 0;k < 4; k++) {
+      if (sw.getComponent(i, k) <= 0)
+        continue;
+      const u = idx[si.getComponent(i, k)];
+      const dx = x - c[u * 3], dy = y - c[u * 3 + 1], dz = z - c[u * 3 + 2];
+      R[u] = Math.max(R[u], Math.sqrt(dx * dx + dy * dy + dz * dz));
+      for (let j = 0;j < morphs.length; j++) {
+        const a = morphs[j];
+        const mx = a.getX(i) - (rel ? 0 : x), my = a.getY(i) - (rel ? 0 : y), mz = a.getZ(i) - (rel ? 0 : z);
+        D[u * morphs.length + j] = Math.max(D[u * morphs.length + j], Math.sqrt(mx * mx + my * my + mz * mz));
+      }
+    }
+  }
+  const p = new Float64Array(U * 3), sK = new Float64Array(U);
+  for (let u = 0;u < U && !bad; u++) {
+    m4.multiplyMatrices(sk.boneInverses[used[u]], m.bindMatrix);
+    v3.set(c[u * 3], c[u * 3 + 1], c[u * 3 + 2]).applyMatrix4(m4);
+    p[u * 3] = v3.x, p[u * 3 + 1] = v3.y, p[u * 3 + 2] = v3.z;
+    sK[u] = stretchOf(m4.elements);
+  }
+  s = { g, ver: pos.version, sk, bind: Float64Array.from(m.bindMatrix.elements), nm: morphs.length, bad, used: Int32Array.from(used), p, R, D, sK };
+  SKIN.set(m, s);
+  return s;
+}
+var SPHERE = new WeakMap;
+function sphereOf(g) {
+  const pos = g.attributes.position;
+  let s = SPHERE.get(g);
+  if (!s || s.ver !== pos.version || !g.boundingSphere || !g.boundingBox) {
+    g.computeBoundingSphere();
+    g.computeBoundingBox();
+    if (!s)
+      SPHERE.set(g, s = { ver: 0 });
+    s.ver = pos.version;
+  }
+  return g.boundingSphere;
+}
+function mergeRects(list) {
+  const area = (r) => (r[2] - r[0]) * (r[3] - r[1]);
+  for (let joined = true;joined; ) {
+    joined = false;
+    for (let i = 0;i < list.length && !joined; i++)
+      for (let j = i + 1;j < list.length && !joined; j++) {
+        const a = list[i], b = list[j], x0 = Math.min(a[0], b[0]), y0 = Math.min(a[1], b[1]), x1 = Math.max(a[2], b[2]), y1 = Math.max(a[3], b[3]);
+        if ((x1 - x0) * (y1 - y0) <= area(a) + area(b))
+          a[0] = x0, a[1] = y0, a[2] = x1, a[3] = y1, list[j] = list[list.length - 1], list.length--, joined = true;
+      }
+  }
+  return list;
+}
+function growByMeshes(meshes, box) {
+  const grow = (x, y, z, r) => {
+    if (x - r < box[0])
+      box[0] = x - r;
+    if (y - r < box[1])
+      box[1] = y - r;
+    if (z - r < box[2])
+      box[2] = z - r;
+    if (x + r > box[3])
+      box[3] = x + r;
+    if (y + r > box[4])
+      box[4] = y + r;
+    if (z + r > box[5])
+      box[5] = z + r;
+  };
+  for (let i = 0;i < meshes.length; i++) {
+    const m = meshes[i];
+    if (!m.visible || m.material?.visible === false || !m.geometry?.attributes?.position)
+      continue;
+    if (m.isSkinnedMesh) {
+      const s = skinOf(m);
+      if (s.bad)
+        return false;
+      L.multiplyMatrices(m.matrixWorld, m.bindMatrixInverse);
+      const e = L.elements, sL = stretchOf(e), infl = m.morphTargetInfluences, nm = s.nm, bones = m.skeleton.bones;
+      for (let u = 0;u < s.used.length; u++) {
+        const bone = bones[s.used[u]];
+        if (!bone)
+          return false;
+        const be = bone.matrixWorld.elements;
+        const px = s.p[u * 3], py = s.p[u * 3 + 1], pz = s.p[u * 3 + 2];
+        const qx = be[0] * px + be[4] * py + be[8] * pz + be[12], qy = be[1] * px + be[5] * py + be[9] * pz + be[13], qz = be[2] * px + be[6] * py + be[10] * pz + be[14];
+        const wx = e[0] * qx + e[4] * qy + e[8] * qz + e[12], wy = e[1] * qx + e[5] * qy + e[9] * qz + e[13], wz = e[2] * qx + e[6] * qy + e[10] * qz + e[14];
+        let r = s.R[u];
+        for (let j = 0;j < nm; j++)
+          r += Math.abs(infl?.[j] || 0) * s.D[u * nm + j];
+        grow(wx, wy, wz, r * sL * stretchOf(be) * s.sK[u] * (1 + 0.00001) + 0.001);
+      }
+      continue;
+    }
+    const sp = sphereOf(m.geometry);
+    if (!sp || !(sp.radius >= 0))
+      return false;
+    if (m.isInstancedMesh) {
+      const a = m.instanceMatrix.array;
+      for (let k = 0;k < m.count; k++) {
+        L.fromArray(a, k * 16).premultiply(m.matrixWorld);
+        const e = L.elements;
+        const cx = sp.center.x, cy = sp.center.y, cz = sp.center.z;
+        grow(e[0] * cx + e[4] * cy + e[8] * cz + e[12], e[1] * cx + e[5] * cy + e[9] * cz + e[13], e[2] * cx + e[6] * cy + e[10] * cz + e[14], sp.radius * stretchOf(e) * (1 + 0.00001) + 0.001);
+      }
+      continue;
+    }
+    const e = m.matrixWorld.elements, bb = m.geometry.boundingBox;
+    for (let k = 0;k < 8; k++) {
+      const x = k & 1 ? bb.max.x : bb.min.x, y = k & 2 ? bb.max.y : bb.min.y, z = k & 4 ? bb.max.z : bb.min.z;
+      grow(e[0] * x + e[4] * y + e[8] * z + e[12], e[1] * x + e[5] * y + e[9] * z + e[13], e[2] * x + e[6] * y + e[10] * z + e[14], 0.001);
+    }
+  }
+  return true;
+}
+
 // site/js/gfx3d/anim/bodyproxy.js
 function fitBodySkin(mesh, { n = 700, skip = /hand|finger|thumb|weapon|grip/ } = {}) {
   const P = mesh.geometry.attributes.position, SI = mesh.geometry.attributes.skinIndex, SW = mesh.geometry.attributes.skinWeight;
@@ -7287,7 +7529,71 @@ function makeBodyProxy(mesh, { pick, side }, { reach = 0.9 } = {}) {
     }
     return ix >= qb[0] - 1 && ix <= qb[3] + 1 && iy >= qb[1] - 1 && iy <= qb[4] + 1 && iz >= qb[2] - 1 && iz <= qb[5] + 1;
   };
+  const balls = [0, 1, 2].map((c) => {
+    const sum = new Map;
+    for (let i = 0;i < N; i++) {
+      if (ARM[i] !== c)
+        continue;
+      for (let k = 0;k < 4; k++) {
+        if (!W[4 * i + k])
+          continue;
+        const b = I[4 * i + k], s = sum.get(b) || [0, 0, 0, 0];
+        s[0] += P0[3 * i], s[1] += P0[3 * i + 1], s[2] += P0[3 * i + 2], s[3]++;
+        sum.set(b, s);
+      }
+    }
+    const bones = [...sum.keys()], c3 = new Float64Array(bones.length * 3), R = new Float64Array(bones.length);
+    bones.forEach((b, u) => {
+      const s = sum.get(b);
+      c3[3 * u] = s[0] / s[3], c3[3 * u + 1] = s[1] / s[3], c3[3 * u + 2] = s[2] / s[3];
+    });
+    const at = new Map(bones.map((b, u) => [b, u]));
+    for (let i = 0;i < N; i++) {
+      if (ARM[i] !== c)
+        continue;
+      for (let k = 0;k < 4; k++) {
+        if (!W[4 * i + k])
+          continue;
+        const u = at.get(I[4 * i + k]);
+        R[u] = Math.max(R[u], Math.hypot(P0[3 * i] - c3[3 * u], P0[3 * i + 1] - c3[3 * u + 1], P0[3 * i + 2] - c3[3 * u + 2]));
+      }
+    }
+    return { bones: Int32Array.from(bones), c3, R };
+  });
+  const bM = new Pe, bL = new Pe, bV = new U;
   return {
+    bounds(skip, out) {
+      const sa = (skip.includes("L") ? 1 : 0) | (skip.includes("R") ? 2 : 0);
+      out[0] = out[1] = out[2] = Infinity, out[3] = out[4] = out[5] = -Infinity;
+      bL.copy(mesh.matrixWorld).multiply(mesh.bindMatrixInverse);
+      for (let c = 0;c < 3; c++) {
+        if (c & sa)
+          continue;
+        const { bones, c3, R } = balls[c];
+        for (let u = 0;u < bones.length; u++) {
+          const b = bones[u], bone = sk.bones[b];
+          if (!bone)
+            return false;
+          bM.multiplyMatrices(bL, bone.matrixWorld).multiply(sk.boneInverses[b]).multiply(mesh.bindMatrix);
+          bV.set(c3[3 * u], c3[3 * u + 1], c3[3 * u + 2]).applyMatrix4(bM);
+          const r = R[u] * stretchOf(bM.elements) * (1 + 0.00001) + 0.001;
+          if (bV.x - r < out[0])
+            out[0] = bV.x - r;
+          if (bV.y - r < out[1])
+            out[1] = bV.y - r;
+          if (bV.z - r < out[2])
+            out[2] = bV.z - r;
+          if (bV.x + r > out[3])
+            out[3] = bV.x + r;
+          if (bV.y + r > out[4])
+            out[4] = bV.y + r;
+          if (bV.z + r > out[5])
+            out[5] = bV.z + r;
+        }
+      }
+      return out[3] >= out[0];
+    },
+    cell: CELL,
     update() {
       sk.update();
       const bm = sk.boneMatrices;
@@ -7750,6 +8056,22 @@ function makeHeroOffHand(hc) {
     }
     return deep;
   }
+  const bodyBox = new Float64Array(6);
+  function farFromBody(w, samples, skip) {
+    if (!body || !w || !samples?.length || !body.bounds(skip, bodyBox))
+      return false;
+    const C = body.cell;
+    const x0 = Math.floor(bodyBox[0] / C) - 1, y0 = Math.floor(bodyBox[1] / C) - 1, z0 = Math.floor(bodyBox[2] / C) - 1;
+    const x1 = Math.floor(bodyBox[3] / C) + 1, y1 = Math.floor(bodyBox[4] / C) + 1, z1 = Math.floor(bodyBox[5] / C) + 1;
+    w.group.updateWorldMatrix(true, false);
+    for (let i = 0;i < samples.length; i++) {
+      aV.p.copy(samples[i]).applyMatrix4(w.group.matrixWorld);
+      const ix = Math.floor(aV.p.x / C), iy = Math.floor(aV.p.y / C), iz = Math.floor(aV.p.z / C);
+      if (ix >= x0 && ix <= x1 && iy >= y0 && iy <= y1 && iz >= z0 && iz <= z1)
+        return false;
+    }
+    return true;
+  }
   function solveOut(w, a, samples, turnW) {
     let deep = deepest(w, samples);
     let turned = 0, moved = 0;
@@ -7802,7 +8124,7 @@ function makeHeroOffHand(hc) {
     aV.p.copy(w.tip).applyMatrix4(w.group.matrixWorld);
     return AVOID.reachCap * range - Math.hypot(aV.p.x - hc.obj.position.x, aV.p.z - hc.obj.position.z);
   };
-  function avoidBody(w, a, samples, dt, turnW, room) {
+  function avoidBody(w, a, samples, dt, turnW, room, far = false) {
     if (!body || !w || !samples?.length || !a.hand || DEV.noAvoid)
       return 0;
     let st = avoidState.get(a);
@@ -7811,7 +8133,8 @@ function makeHeroOffHand(hc) {
     a.hand.getWorldQuaternion(aS.q0);
     a.hand.getWorldPosition(aS.h0);
     aS.qu.copy(a.upper.quaternion), aS.qf.copy(a.fore.quaternion), aS.qh.copy(a.hand.quaternion);
-    solveOut(w, a, samples, turnW);
+    if (!far)
+      solveOut(w, a, samples, turnW);
     a.hand.getWorldQuaternion(aS.qT).multiply(aV.q.copy(aS.q0).invert());
     a.hand.getWorldPosition(aS.dT).sub(aS.h0);
     a.upper.quaternion.copy(aS.qu), a.fore.quaternion.copy(aS.qf), a.hand.quaternion.copy(aS.qh);
@@ -7998,6 +8321,7 @@ function makeHeroOffHand(hc) {
     liveShare,
     tipRoom,
     avoidBody,
+    farFromBody,
     sC,
     shoulderCarry,
     gripOffHand,
@@ -9046,7 +9370,7 @@ function makeHero3D(asset, look, { spec = asset.animations.some((a) => a.name ==
     }
   };
   const offhand = makeHeroOffHand(hc);
-  const { chainSpec, shieldGrip, aimTip, aimTipOff, body, samplesOf, liveShare, tipRoom, avoidBody, sC, shoulderCarry, gripOffHand, offPass } = offhand;
+  const { chainSpec, shieldGrip, aimTip, aimTipOff, body, samplesOf, liveShare, tipRoom, avoidBody, farFromBody, sC, shoulderCarry, gripOffHand, offPass } = offhand;
   function withoutHipDrive(fn) {
     const on = Math.abs(hipS.x) >= 0.0001 && hipCounter.length;
     if (on)
@@ -9694,15 +10018,17 @@ function makeHero3D(asset, look, { spec = asset.animations.some((a) => a.name ==
       const mainClear = () => {
         obj.updateMatrixWorld(true);
         const swordOwn = WEAPONS[armsNow.main]?.keyed && s.state !== STATE.GUARD && keyedNow;
-        if (!swordOwn || offWeapon && !offWeapon.info?.shield)
-          body.update();
         if (!offhand.mainSamples)
           offhand.mainSamples = samplesOf(sword, armsNow.twoHanded);
         bothHands = armsNow.twoHanded || !offWeapon && !!cut && cutBothOf(cut) * cutW > 0.001;
+        const offNeeds = !!(offWeapon && !offWeapon.info?.shield);
+        const mainFar = !swordOwn && !offNeeds && farFromBody(sword, offhand.mainSamples, bothHands ? "LR" : side);
+        if ((!swordOwn || offNeeds) && !mainFar)
+          body.update();
         body.skipArms(bothHands ? "LR" : side);
         const live = liveShare(p, s), mv = live > 0 ? moveOf(p) : null;
         if (!swordOwn)
-          avoidBody(sword, arm, offhand.mainSamples, first ? -1 : dt, 1 - live, mv && mv.shape !== "thrust" && p.hand !== "off" ? tipRoom(sword, mv.range) : 0);
+          avoidBody(sword, arm, offhand.mainSamples, first ? -1 : dt, 1 - live, mv && mv.shape !== "thrust" && p.hand !== "off" ? tipRoom(sword, mv.range) : 0, mainFar);
       };
       const bothNow = armsNow.twoHanded || !offWeapon && !!cut && cutBothOf(cut) * cutW > 0.001;
       if (body && !held && bothNow)
@@ -11115,11 +11441,29 @@ function hullGeometry(geo) {
 var sI = new et;
 var sWt = new et;
 var sB = new et;
-var sM = new Pe;
 var sT = new U;
 var sP = new U;
 var sMo = new U;
 var sTm = new U;
+var boneMats = new WeakMap;
+function boneMatrix(sk, bi) {
+  let c = boneMats.get(sk);
+  if (!c || c.m.length !== sk.bones.length)
+    boneMats.set(sk, c = { m: sk.bones.map(() => new Pe), w: new Float64Array(sk.bones.length * 16), ok: new Uint8Array(sk.bones.length), inv: sk.bones.map(() => null) });
+  const e = sk.bones[bi].matrixWorld.elements, w = c.w, o = bi * 16, inv = sk.boneInverses[bi];
+  if (c.ok[bi] && c.inv[bi] === inv) {
+    let same = true;
+    for (let k = 0;k < 16 && same; k++)
+      same = w[o + k] === e[k];
+    if (same)
+      return c.m[bi];
+  }
+  c.m[bi].multiplyMatrices(sk.bones[bi].matrixWorld, inv);
+  for (let k = 0;k < 16; k++)
+    w[o + k] = e[k];
+  c.ok[bi] = 1, c.inv[bi] = inv;
+  return c.m[bi];
+}
 function skinnedAt(mesh, i, out) {
   const { geometry: g, skeleton: sk } = mesh, mp = g.morphAttributes.position, inf = mesh.morphTargetInfluences;
   sP.fromBufferAttribute(g.attributes.position, i);
@@ -11146,8 +11490,7 @@ function skinnedAt(mesh, i, out) {
     if (wt === 0)
       continue;
     const bi = sI.getComponent(k);
-    sM.multiplyMatrices(sk.bones[bi].matrixWorld, sk.boneInverses[bi]);
-    out.addScaledVector(sT.copy(sB).applyMatrix4(sM), wt);
+    out.addScaledVector(sT.copy(sB).applyMatrix4(boneMatrix(sk, bi)), wt);
   }
   return out.applyMatrix4(mesh.bindMatrixInverse).applyMatrix4(mesh.matrixWorld);
 }
@@ -13643,6 +13986,7 @@ function passView(scene, key) {
 // site/js/gfx3d/shadow3d.js
 var SIL_LAYER = 6;
 var INK_LAYER = SIL_LAYER + 3;
+var INK_LAST = 1e9;
 var MAXC = 3;
 var SHADOW_DEFAULTS = {
   on: true,
@@ -13847,27 +14191,62 @@ function makeProjectedShadows(gl, { size = 384 } = {}) {
   const quad = new Fu(mat);
   const tmp = new U, dir = new U, foot = new U, off = new et, prevClear = new Se;
   const invVP = new Pe, camVP = new Pe, corner = new et, rect = [0, 0, 0, 0];
-  function growRect(S, warp, span, camera, W, H) {
+  const QALL = [-1, -1, 1, 1], qb = [0, 0, 0, 0], zs = [0, 0], casterSize = size;
+  const boxes = Array.from({ length: MAXC }, () => new Float64Array(6)), boxOk = new Array(MAXC).fill(false);
+  const pools = Array.from({ length: MAXC }, () => [0, 0, 0, 0]), drawn = [], rectPool = Array.from({ length: MAXC }, () => [0, 0, 0, 0]);
+  function growRect(S, warp, span, camera, W, H, q = QALL, rzLo = -1.5 / span, rzHi = 1 + S.reach / span) {
     invVP.copy(S.vp).invert();
     camVP.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
     const [a, b, c, d] = warp, det = a * d - c * b;
     if (Math.abs(det) < 0.000000001)
       return false;
     const A = S.anchor, ia = d / det, ib = -b / det, ic = -c / det, id = a / det;
-    const zs = [2 * (-1.5 / span) - 1, 2 * (1 + S.reach / span) - 1];
-    for (const qx of [-1, 1])
-      for (const qy of [-1, 1])
-        for (const cz of zs) {
-          const ux = qx - A.x, uy = qy - A.y;
-          const cx = ia * ux + ic * uy + A.x - A.z, cy = ib * ux + id * uy + A.y - A.w;
-          corner.set(cx, cy, cz, 1).applyMatrix4(invVP);
-          corner.multiplyScalar(1 / corner.w).setW(1).applyMatrix4(camVP);
-          if (corner.w <= 0.000001)
-            return false;
-          const sx = (corner.x / corner.w * 0.5 + 0.5) * W, sy = (corner.y / corner.w * 0.5 + 0.5) * H;
-          rect[0] = Math.min(rect[0], sx), rect[1] = Math.min(rect[1], sy), rect[2] = Math.max(rect[2], sx), rect[3] = Math.max(rect[3], sy);
-        }
+    zs[0] = 2 * rzLo - 1;
+    zs[1] = 2 * rzHi - 1;
+    for (let k = 0;k < 8; k++) {
+      const qx = q[k & 1 ? 2 : 0], qy = q[k & 2 ? 3 : 1], cz = zs[k >> 2];
+      const ux = qx - A.x, uy = qy - A.y;
+      const cx = ia * ux + ic * uy + A.x - A.z, cy = ib * ux + id * uy + A.y - A.w;
+      corner.set(cx, cy, cz, 1).applyMatrix4(invVP);
+      corner.multiplyScalar(1 / corner.w).setW(1).applyMatrix4(camVP);
+      if (corner.w <= 0.000001)
+        return false;
+      const sx = (corner.x / corner.w * 0.5 + 0.5) * W, sy = (corner.y / corner.w * 0.5 + 0.5) * H;
+      rect[0] = Math.min(rect[0], sx), rect[1] = Math.min(rect[1], sy), rect[2] = Math.max(rect[2], sx), rect[3] = Math.max(rect[3], sy);
+    }
     return true;
+  }
+  function growPoint(x, y, z, W, H) {
+    corner.set(x, y, z, 1).applyMatrix4(camVP);
+    if (corner.w <= 0.000001)
+      return false;
+    const sx = (corner.x / corner.w * 0.5 + 0.5) * W, sy = (corner.y / corner.w * 0.5 + 0.5) * H;
+    rect[0] = Math.min(rect[0], sx), rect[1] = Math.min(rect[1], sy), rect[2] = Math.max(rect[2], sx), rect[3] = Math.max(rect[3], sy);
+    return true;
+  }
+  function growCaster(i, warp, span, camera, W, H, soft, pool) {
+    const S = casters[i], B = boxes[i];
+    if (!boxOk[i])
+      return growRect(S, warp, span, camera, W, H);
+    if (pool) {
+      camVP.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+      for (let k = 0;k < 8; k++)
+        if (!growPoint(pool[0] + (k & 1 ? pool[2] : -pool[2]), k & 4 ? pool[3] + 8 : pool[3] - 1e4, pool[1] + (k & 2 ? pool[2] : -pool[2]), W, H))
+          return false;
+    }
+    let x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -Infinity, y1 = -Infinity, z1 = -Infinity;
+    for (let k = 0;k < 8; k++) {
+      corner.set(k & 1 ? B[3] : B[0], k & 2 ? B[4] : B[1], k & 4 ? B[5] : B[2], 1).applyMatrix4(S.vp);
+      const cx = corner.x / corner.w, cy = corner.y / corner.w, cz = corner.z / corner.w;
+      x0 = Math.min(x0, cx), y0 = Math.min(y0, cy), z0 = Math.min(z0, cz), x1 = Math.max(x1, cx), y1 = Math.max(y1, cy), z1 = Math.max(z1, cz);
+    }
+    x0 = Math.max(x0, -1), y0 = Math.max(y0, -1), x1 = Math.min(x1, 1), y1 = Math.min(y1, 1);
+    if (x0 > x1 || y0 > y1)
+      return true;
+    const e = (soft + 2) * 2 / casterSize;
+    qb[0] = Math.max(-1, x0 - e), qb[1] = Math.max(-1, y0 - e), qb[2] = Math.min(1, x1 + e), qb[3] = Math.min(1, y1 + e);
+    const zb0 = Math.max(0, Math.min(1, z0 * 0.5 + 0.5)), zb1 = Math.max(0, Math.min(1, z1 * 0.5 + 0.5));
+    return growRect(S, warp, span, camera, W, H, qb, zb0 - 1.5 / span, zb1 + S.reach / span);
   }
   const NOBJ = 3;
   const tagged = Array.from({ length: MAXC }, () => ({ o: new Array(NOBJ).fill(null), gen: -1, ink: [], sil: [] }));
@@ -13891,6 +14270,43 @@ function makeProjectedShadows(gl, { size = 384 } = {}) {
       s.polygonOffsetFactor = silMat.polygonOffsetFactor;
       s.polygonOffsetUnits = silMat.polygonOffsetUnits;
     }
+  }
+  const viewRoots = new Map;
+  function casterView(scene, key, objs, list) {
+    const v = passView(scene, key);
+    let roots = viewRoots.get(key);
+    if (!roots)
+      viewRoots.set(key, roots = []);
+    roots.length = 0;
+    const add = (o) => {
+      if (!o)
+        return;
+      for (let i = 0;i < roots.length; i++)
+        if (roots[i] === o)
+          return;
+      let p = o.parent;
+      while (p && p !== scene && p.visible !== false)
+        p = p.parent;
+      if (p === scene)
+        roots.push(o);
+    };
+    if (objs)
+      for (let k = 0;k < objs.length; k++)
+        add(objs[k]);
+    if (list)
+      for (let i = 0;i < list.length && i < MAXC; i++)
+        for (let k = 0;k < list[i].objects.length; k++)
+          add(list[i].objects[k]);
+    for (let i = roots.length - 1;i >= 0; i--) {
+      let under = false;
+      for (let p = roots[i].parent;p && !under; p = p.parent)
+        for (let j = 0;j < roots.length && !under; j++)
+          under = j !== i && roots[j] === p;
+      if (under)
+        roots[i] = roots[roots.length - 1], roots.length--;
+    }
+    v.children = roots;
+    return v;
   }
   function tag(objs, i) {
     const T = tagged[i];
@@ -13937,6 +14353,7 @@ function makeProjectedShadows(gl, { size = 384 } = {}) {
     get mask() {
       return out ? mask.texture : null;
     },
+    casterBoxes: { boxes, ok: boxOk },
     render(scene, camera, list, depthTex, W, H) {
       out = null;
       if (!params.on || !list?.length)
@@ -13961,6 +14378,11 @@ function makeProjectedShadows(gl, { size = 384 } = {}) {
         const c = list[ci];
         const S = casters[n];
         tag(c.objects, n);
+        {
+          const B = boxes[n];
+          B[0] = B[1] = B[2] = Infinity, B[3] = B[4] = B[5] = -Infinity;
+          boxOk[n] = growByMeshes(tagged[n].sil, B) && B[3] >= B[0];
+        }
         for (const m of tagged[n].sil)
           if (m.material && m.material.visible !== false)
             swapped.push(m, m.material), m.material = silFor(m);
@@ -13996,12 +14418,12 @@ function makeProjectedShadows(gl, { size = 384 } = {}) {
         mat.uniforms.uSpan.value[n] = S.cam.far - S.cam.near;
         gl.setRenderTarget(S.rt);
         gl.clear(true, true, false);
-        gl.render(passView(scene, "shadow"), S.cam);
+        gl.render(casterView(scene, "shadow-sil", c.objects, null), S.cam);
         n++;
       }
       camera.layers.disableAll();
       for (let i = 0;i < n; i++)
-        camera.layers.enable(SIL_LAYER + i);
+        camera.layers.enable(SIL_LAYER + i), camera.layers.enable(INK_LAYER + i);
       gl.setRenderTarget(mask);
       gl.clear(true, false, false);
       silMat.depthFunc = 3;
@@ -14010,7 +14432,13 @@ function makeProjectedShadows(gl, { size = 384 } = {}) {
       silMat.polygonOffsetFactor = -1;
       silMat.polygonOffsetUnits = -4;
       silSync();
-      gl.render(passView(scene, "shadow"), camera);
+      inkDepth.length = 0;
+      for (let i = 0;i < n; i++)
+        for (const o of tagged[i].ink)
+          inkDepth.push(o, o.material.depthWrite, o.renderOrder), o.material.depthWrite = false, o.renderOrder += INK_LAST;
+      gl.render(casterView(scene, "shadow-mask", null, list), camera);
+      for (let k = 0;k < inkDepth.length; k += 3)
+        inkDepth[k].material.depthWrite = inkDepth[k + 1], inkDepth[k].renderOrder = inkDepth[k + 2];
       silMat.depthWrite = true;
       silMat.polygonOffset = false;
       silSync();
@@ -14018,16 +14446,6 @@ function makeProjectedShadows(gl, { size = 384 } = {}) {
         swapped[k].material = swapped[k + 1];
       swapped.length = 0;
       scene.overrideMaterial = null;
-      camera.layers.disableAll();
-      for (let i = 0;i < n; i++)
-        camera.layers.enable(INK_LAYER + i);
-      inkDepth.length = 0;
-      for (let i = 0;i < n; i++)
-        for (const o of tagged[i].ink)
-          inkDepth.push(o.material, o.material.depthWrite), o.material.depthWrite = false;
-      gl.render(passView(scene, "shadow"), camera);
-      for (let k = 0;k < inkDepth.length; k += 2)
-        inkDepth[k].depthWrite = inkDepth[k + 1];
       camera.layers.mask = prevLayers;
       scene.overrideMaterial = prevOverride;
       gl.shadowMap.autoUpdate = sw;
@@ -14052,20 +14470,33 @@ function makeProjectedShadows(gl, { size = 384 } = {}) {
       gl.setRenderTarget(this._out);
       gl.setClearColor(0, 0);
       gl.clear(true, false, false);
-      rect[0] = rect[1] = Infinity;
-      rect[2] = rect[3] = -Infinity;
       let fit = true;
-      for (let i = 0;i < n && fit; i++)
-        fit = growRect(casters[i], wp, mat.uniforms.uSpan.value[i], camera, W, H);
-      const x0 = Math.max(0, Math.floor(rect[0]) - 2), y0 = Math.max(0, Math.floor(rect[1]) - 2);
-      const x1 = Math.min(W, Math.ceil(rect[2]) + 2), y1 = Math.min(H, Math.ceil(rect[3]) + 2);
-      if (fit && x1 > x0 && y1 > y0) {
-        this._out.scissor.set(x0, y0, x1 - x0, y1 - y0);
-        this._out.scissorTest = true;
-        gl.setRenderTarget(this._out);
+      drawn.length = 0;
+      for (let i = 0;i < n && fit; i++) {
+        const pl = u.uPool.value[i], py = u.uPoolY.value[i];
+        const pool = pl.w > 0 ? (pools[i][0] = pl.x, pools[i][1] = pl.y, pools[i][2] = pl.z, pools[i][3] = py.x, pools[i]) : null;
+        rect[0] = rect[1] = Infinity;
+        rect[2] = rect[3] = -Infinity;
+        fit = growCaster(i, wp, mat.uniforms.uSpan.value[i], camera, W, H, u.uSoft.value[i], pool);
+        const x0 = Math.max(0, Math.floor(rect[0]) - 2), y0 = Math.max(0, Math.floor(rect[1]) - 2);
+        const x1 = Math.min(W, Math.ceil(rect[2]) + 2), y1 = Math.min(H, Math.ceil(rect[3]) + 2);
+        if (x1 > x0 && y1 > y0) {
+          const r = rectPool[drawn.length];
+          r[0] = x0, r[1] = y0, r[2] = x1, r[3] = y1, drawn.push(r);
+        }
       }
-      if (!fit || x1 > x0 && y1 > y0)
+      if (!fit)
         quad.render(gl);
+      else {
+        mergeRects(drawn);
+        for (let k = 0;k < drawn.length; k++) {
+          const r = drawn[k];
+          this._out.scissor.set(r[0], r[1], r[2] - r[0], r[3] - r[1]);
+          this._out.scissorTest = true;
+          gl.setRenderTarget(this._out);
+          quad.render(gl);
+        }
+      }
       this._out.scissorTest = false;
       gl.setRenderTarget(prevTarget);
       gl.setClearColor(prevClear, prevAlpha);
@@ -14099,6 +14530,20 @@ function makeProjectedShadows(gl, { size = 384 } = {}) {
 }
 
 // site/js/gfx3d/reflect3d.js
+var VP = new Pe;
+var C4 = new et;
+function rectOf(vp, x0, x1, y0, y1, z0, z1, W, H, mx, my, out) {
+  let a = Infinity, b = Infinity, c = -Infinity, d = -Infinity;
+  for (let k = 0;k < 8; k++) {
+    C4.set(k & 1 ? x1 : x0, k & 2 ? y1 : y0, k & 4 ? z1 : z0, 1).applyMatrix4(vp);
+    if (C4.w <= 0.000001)
+      return null;
+    const sx = (C4.x / C4.w * 0.5 + 0.5) * W, sy = (C4.y / C4.w * 0.5 + 0.5) * H;
+    a = Math.min(a, sx), b = Math.min(b, sy), c = Math.max(c, sx), d = Math.max(d, sy);
+  }
+  out[0] = Math.max(0, Math.floor(a - mx)), out[1] = Math.max(0, Math.floor(b - my)), out[2] = Math.min(W, Math.ceil(c + mx)), out[3] = Math.min(H, Math.ceil(d + my));
+  return out;
+}
 var REFLECT_DEFAULTS = {
   on: false,
   strength: 0.55,
@@ -14241,6 +14686,7 @@ function makeReflections(gl) {
   });
   const quad = new Fu(mat);
   let rt = null, out = null, done = null;
+  const rects = [], rectPool = Array.from({ length: 4 }, () => [0, 0, 0, 0]), mirrorRect = [0, 0, 0, 0];
   const pos = new U, at = new U, up = new U, rot = new Pe, prevClear = new Se;
   const lights = [];
   const clip = [new ln(new U(0, 1, 0), 0)];
@@ -14294,7 +14740,7 @@ function makeReflections(gl) {
     get target() {
       return done;
     },
-    render(scene, camera, n, mask, depthTex, W, H, now) {
+    render(scene, camera, n, mask, depthTex, W, H, now, cb = null) {
       done = null;
       if (!params.on || !n || !mask || !camera.isPerspectiveCamera)
         return;
@@ -14336,13 +14782,26 @@ function makeReflections(gl) {
       gl.setRenderTarget(rt);
       gl.setClearColor(0, 0);
       gl.clear(true, true, false);
+      let x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -Infinity, y1 = -Infinity, z1 = -Infinity, boxed = !!cb && n > 0;
+      for (let i = 0;i < n && boxed; i++) {
+        const B = cb.boxes[i];
+        if (!cb.ok[i])
+          boxed = false;
+        else
+          x0 = Math.min(x0, B[0]), y0 = Math.min(y0, B[1]), z0 = Math.min(z0, B[2]), x1 = Math.max(x1, B[3]), y1 = Math.max(y1, B[4]), z1 = Math.max(z1, B[5]);
+      }
+      const mr = boxed ? rectOf(VP.multiplyMatrices(vcam.projectionMatrix, vcam.matrixWorldInverse), x0, x1, y0, y1, z0, z1, rw, rh, 2, 2, mirrorRect) : null;
+      if (mr)
+        rt.scissor.set(mr[0], mr[1], Math.max(0, mr[2] - mr[0]), Math.max(0, mr[3] - mr[1])), rt.scissorTest = true, gl.setRenderTarget(rt);
       clip[0].constant = -h;
       const clipWas = gl.clippingPlanes;
       gl.clippingPlanes = clip;
       const au = scene.matrixWorldAutoUpdate;
       scene.matrixWorldAutoUpdate = false;
-      gl.render(scene, vcam);
+      if (!mr || mr[2] > mr[0] && mr[3] > mr[1])
+        gl.render(scene, vcam);
       scene.matrixWorldAutoUpdate = au;
+      rt.scissorTest = false;
       gl.clippingPlanes = clipWas;
       for (const l of lights)
         for (let i = 0;i < n; i++)
@@ -14372,7 +14831,33 @@ function makeReflections(gl) {
       u.uRTex.value.set(1 / rw, 1 / rh);
       gl.setRenderTarget(out);
       gl.clear(true, false, false);
-      quad.render(gl);
+      let whole = !boxed;
+      rects.length = 0;
+      if (boxed) {
+        VP.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+        for (let i = 0;i < n && !whole; i++) {
+          const B = cb.boxes[i], grow = 1 + Math.max(0, B[4] - h) * params.blurGrow, kx = W / rw, ky = H / rh;
+          const mx = 2 * params.ripple * W + (params.blur * grow + 1) * kx + 2, my = 2 * params.ripple * H + (3 * params.blur * grow * params.smear + 1) * ky + 2;
+          const r = rectOf(VP, B[0], B[3], 2 * h - B[4], 2 * h - B[1], B[2], B[5], W, H, mx, my, rectPool[rects.length]);
+          if (!r)
+            whole = true;
+          else if (r[2] > r[0] && r[3] > r[1])
+            rects.push(r);
+        }
+      }
+      if (whole)
+        quad.render(gl);
+      else {
+        mergeRects(rects);
+        for (let k = 0;k < rects.length; k++) {
+          const r = rects[k];
+          out.scissor.set(r[0], r[1], r[2] - r[0], r[3] - r[1]);
+          out.scissorTest = true;
+          gl.setRenderTarget(out);
+          quad.render(gl);
+        }
+      }
+      out.scissorTest = false;
       gl.setRenderTarget(prevTarget);
       gl.setClearColor(prevClear, prevAlpha);
       done = out;
@@ -14654,11 +15139,12 @@ function makeLife3D(look, { trees, wind, rand, painted }) {
         k++;
       }
       geo.instanceCount = k;
-      for (const a of [data, col, turn]) {
-        a.needsUpdate = true;
-        a.clearUpdateRanges();
-        a.addUpdateRange(0, k * a.itemSize);
-      }
+      if (k)
+        for (const a of [data, col, turn]) {
+          a.needsUpdate = true;
+          a.clearUpdateRanges();
+          a.addUpdateRange(0, k * a.itemSize);
+        }
     },
     dispose() {
       quad.dispose();
@@ -17083,9 +17569,8 @@ function makeCinderFx({ sparks }) {
         P[j * 4] = x, P[j * 4 + 1] = floorAt(x, y) + 0.5, P[j * 4 + 2] = y, P[j * 4 + 3] = r;
         Q[j * 3] = a, Q[j * 3 + 1] = 0.37 * i, Q[j * 3 + 2] = 1;
       });
-      D.g.instanceCount = scorchL.length + pools.length;
+      send(D, scorchL.length + pools.length);
       pools.length = 0;
-      D.a.iPos.needsUpdate = D.a.iData.needsUpdate = true;
       const nF = stepPuffs(fireL, F.a, dt), nS = stepPuffs(smokeL, S.a, dt);
       send(F, nF);
       send(S, nS);
@@ -19238,8 +19723,8 @@ function makeCrabRise({ P, pic, shard }) {
       D[o] = k, D[o + 1] = p.seed, D[o + 2] = p.a, D[o + 3] = 0;
     }
     dg.instanceCount = n;
-    dA.iPos.needsUpdate = true, dA.iPos.addUpdateRange(0, n * 4);
-    dA.iData.needsUpdate = true, dA.iData.addUpdateRange(0, n * 4);
+    if (n)
+      dA.iPos.needsUpdate = true, dA.iPos.addUpdateRange(0, n * 4), dA.iData.needsUpdate = true, dA.iData.addUpdateRange(0, n * 4);
   }
   function rollRim(n, k, out, size, life, a = 1) {
     for (let i = 0;i < n; i++) {
@@ -20168,9 +20653,13 @@ diffuseColor.rgb *= mix(vec3(0.5, 0.42, 0.52), vec3(1.0), smoothstep(0.0, 0.75, 
         c3.copy(s.col).toArray(mesh.instanceColor.array, n * 3);
         n++;
       }
+      if (n || mesh.count) {
+        const { instanceMatrix: im, instanceColor: ic } = mesh;
+        im.clearUpdateRanges(), ic.clearUpdateRanges();
+        if (n)
+          im.addUpdateRange(0, n * 16), ic.addUpdateRange(0, n * 3), im.needsUpdate = true, ic.needsUpdate = true;
+      }
       mesh.count = n;
-      mesh.instanceMatrix.needsUpdate = true;
-      mesh.instanceColor.needsUpdate = true;
     },
     dispose() {
       geo.dispose();
@@ -21278,6 +21767,7 @@ function makeWarmup(rc) {
           m.transparent = true, see.push(m);
     });
     const was = rc.gl.getRenderTarget(), layers = rc.camera.layers.mask, jobs = [];
+    rc.refBd?.limitGlow(rc.gl);
     try {
       rc.gl.setRenderTarget(rc.post.scene);
       rc.camera.layers.enableAll();
@@ -22316,6 +22806,7 @@ function makeRenderer3D(canvasEl, { debug = {}, onCue = null, aimPreview = null,
   const heroBlob = makeBlob(6.5, 0.38);
   scene.add(hero, heroBlob);
   const heroModel = assets.hero ? makeHero3D(assets.hero, look) : null;
+  heroModel?.object.traverse((o) => o.isSkinnedMesh && cacheSkeletonUpdates(o.skeleton));
   if (heroModel) {
     hero.visible = false;
     scene.add(heroModel.object);
@@ -22448,6 +22939,7 @@ void main() {`).replace("#include <dithering_fragment>", `#include <dithering_fr
   scene.add(...gnasherFx.objects);
   toadBody.add(belly, cream, ...eyes, sac, mouth);
   let bossModel = assets.gnasher ? makeBoss3D(assets.gnasher, look) : null;
+  bossModel?.object.traverse((o) => o.isSkinnedMesh && cacheSkeletonUpdates(o.skeleton));
   const kingChain = makeKingChain();
   globalThis.__kingChain = kingChain;
   const kingFx = kingChainPlugin(kingChain, fxCtx);
@@ -22469,6 +22961,7 @@ void main() {`).replace("#include <dithering_fragment>", `#include <dithering_fr
       bossModel.dispose ? bossModel.dispose() : scene.remove(bossModel.object);
     const asset = want === "gnasher" ? assets.gnasher : assets.bosses[want];
     bossModel = asset ? makeBoss3D(asset, look, BOSS_MODELS2[want]) : null;
+    bossModel?.object.traverse((o) => o.isSkinnedMesh && cacheSkeletonUpdates(o.skeleton));
     bossR = want === "gnasher" ? BOSS_MODELS2.gnasher?.radius ?? TOAD_R : BOSS_MODELS2[want].radius;
     toadBody.visible = !bossModel;
     if (bossModel)
@@ -23713,9 +24206,10 @@ void main() {`).replace("#include <dithering_fragment>", `#include <dithering_fr
     shadows.render(scene, camera, casters, post.scene.depthTexture, f.W, f.H);
     const cast = shadows.target ? { tex: shadows.target.texture, tint: shadows.params.tint } : null;
     reflections.setDry(crabFx.dry?.() ?? null);
-    reflections.render(scene, camera, Math.min(3, casters.length), shadows.mask, post.scene.depthTexture, f.W, f.H, now);
+    reflections.render(scene, camera, Math.min(3, casters.length), shadows.mask, post.scene.depthTexture, f.W, f.H, now, shadows.casterBoxes);
     const refl = reflections.target?.texture || null;
     if (bloomOn > 0) {
+      refBd?.limitGlow(gl);
       gl.setRenderTarget(post.emissive);
       gl.setClearColor(0, 0);
       gl.clear(true, false, false);

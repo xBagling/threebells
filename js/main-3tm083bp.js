@@ -10,35 +10,37 @@ import {
   ii,
   we,
   et,
+  Gt,
   Xe,
   ot,
   Tt,
   Fn,
-  Kt
-} from "./main-6mhe1mqq.js?v=8a852a6-6e389bbf";
+  Kt,
+  Fu
+} from "./main-6mhe1mqq.js?v=30e8e0e-97b8dd9b";
 import {
   BACK,
   RIGHT,
   UP
-} from "./main-g90df43y.js?v=8a852a6-6e389bbf";
+} from "./main-g90df43y.js?v=30e8e0e-97b8dd9b";
 import {
   pictureLoader,
   rawTex
-} from "./main-74g1a3n8.js?v=8a852a6-6e389bbf";
+} from "./main-74g1a3n8.js?v=30e8e0e-97b8dd9b";
 import {
   loadEdit2,
   emptyEdit2,
   loadPieces2,
   attachPieces2
-} from "./main-ybx00bvq.js?v=8a852a6-6e389bbf";
+} from "./main-ybx00bvq.js?v=30e8e0e-97b8dd9b";
 import {
   unitQuad,
   NOISE_GLSL
-} from "./main-jv075w3r.js?v=8a852a6-6e389bbf";
+} from "./main-jv075w3r.js?v=30e8e0e-97b8dd9b";
 import {
   __preload,
   maxTextureSize
-} from "./main-8rd3fg5z.js?v=8a852a6-6e389bbf";
+} from "./main-8rd3fg5z.js?v=30e8e0e-97b8dd9b";
 
 // site/js/gfx3d/backdrop3d.js
 var QS = typeof location !== "undefined" ? new URLSearchParams(location.search) : new URLSearchParams;
@@ -91,7 +93,7 @@ async function loadRef(bd, tl, base) {
   const size = pics.then(([, rd]) => ({ w: rd.image.width, h: rd.image.height }));
   const edits = Promise.all([loadEdit2(id, size), loadPieces2(id, size, true)]);
   const b3url = QS.get("bell3d") ? `art3d/${QS.get("bell3d")}/bell.gltf` : meta.bell3d?.file ? `art3d/${id}/${meta.bell3d.file}` : null;
-  const bell3d = b3url ? (__preload("qv4jc8dc"), import("./gltf-qv4jc8dc.js?v=8a852a6-6e389bbf")).then(({ GLTFLoader }) => new GLTFLoader().loadAsync(b3url)).catch(() => null) : null;
+  const bell3d = b3url ? (__preload("qv4jc8dc"), import("./gltf-qv4jc8dc.js?v=30e8e0e-97b8dd9b")).then(({ GLTFLoader }) => new GLTFLoader().loadAsync(b3url)).catch(() => null) : null;
   const bell = meta.bell?.file && !QS.get("bell3d") ? tex(`art3d/${id}/${meta.bell.file}`) : null;
   const answer = meta.answer?.file ? tex(`art3d/${id}/${meta.answer.file}`) : null;
   const life = meta.life?.file ? Promise.all([meta.life.file, meta.life.file2].map((f) => f ? tex(`art3d/${id}/${f}`) : null)) : [null, null];
@@ -809,6 +811,50 @@ var refFrag = `
     gl_FragColor = vec4(c, 1.0);
   }
 `;
+var GLOW_T = 4;
+var GLOW_TILE_FRAG = `
+  uniform sampler2D tImage;
+  uniform sampler2D tFx;
+  uniform float uHasFx;
+  uniform vec2 uImage;
+  uniform float uT;
+  void main() {
+    // (the target's row r from the bottom is the picture's tile row r from its top, as the picture's own rows run)
+    vec2 p0 = floor(gl_FragCoord.xy) * uT, p1 = min(p0 + uT, uImage);
+    ivec2 ts = textureSize(tImage, 0);
+    vec2 sc = vec2(ts) / uImage;
+    ivec2 a = clamp(ivec2(floor(p0 * sc)), ivec2(0), ts - 1), b = clamp(ivec2(ceil(p1 * sc)) - 1, ivec2(0), ts - 1);
+    vec3 mx = vec3(0.0);
+    float rb = -1.0;
+    for (int y = a.y; y <= b.y; y++)
+      for (int x = a.x; x <= b.x; x++) {
+        vec3 c = texelFetch(tImage, ivec2(x, y), 0).rgb;
+        mx = max(mx, c);
+        rb = max(rb, c.r - c.b);
+      }
+    float g = 0.0;
+    if (uHasFx > 0.5) {
+      ivec2 fs = textureSize(tFx, 0);
+      vec2 fsc = vec2(fs) / uImage;
+      ivec2 fa = clamp(ivec2(floor(p0 * fsc)) - 1, ivec2(0), fs - 1), fb = clamp(ivec2(ceil(p1 * fsc)), ivec2(0), fs - 1);
+      for (int y = fa.y; y <= fb.y; y++)
+        for (int x = fa.x; x <= fb.x; x++) g = max(g, texelFetch(tFx, ivec2(x, y), 0).g);
+    }
+    // (R: its brightest light, rounded up; G: any texel redder than blue; B: the flames' light over it, rounded up — put together
+    // after each is grown over its neighbours, buildTiles: a pixel's blend can take its brightness from one tile, its warmth from
+    // another and its light from where it is)
+    vec3 lin = mix(mx / 12.92, pow((mx + 0.055) / 1.055, vec3(2.4)), step(0.04045, mx));
+    float lum = dot(lin, vec3(0.2126, 0.7152, 0.0722));
+    gl_FragColor = vec4(min(1.0, ceil(lum * 255.0 + 0.001) / 255.0), rb > 0.0 ? 1.0 : 0.0, min(1.0, ceil(g * 255.0 + 0.001) / 255.0), 1.0);
+  }
+`;
+var glowTileVert = `
+  uniform vec4 uCrop;
+  void main() {
+    vec2 t = vec2((position.x - uCrop.x) / uCrop.z, 1.0 - (position.y - uCrop.y) / uCrop.w);
+    gl_Position = vec4(t * 2.0 - 1.0, 0.0, 1.0);
+  }
+`;
 function makeRefBackdrop2(bd) {
   const r = bd.meta.ref;
   const geo = new ot;
@@ -871,10 +917,160 @@ function makeRefBackdrop2(bd) {
   const main = make(false), glow = make(true), over = make("over");
   over.visible = false;
   main.add(over);
+  const fullGeo = geo, fullMat = glow.material;
+  let tileMat = null, tilesFor = null, tileSet = null, tileWarm = null, TW = 0, TH = 0;
+  const tileGeos = new Map;
+  function buildTiles(gl) {
+    const img = bd.refImage, w = r.image.w, h = r.image.h;
+    TW = Math.ceil(w / GLOW_T), TH = Math.ceil(h / GLOW_T);
+    const rt = new Gt(TW, TH, { minFilter: tn, magFilter: tn, generateMipmaps: false, depthBuffer: false });
+    const mat = new Kt({
+      uniforms: { tImage: { value: img }, tFx: { value: bd.refFx || null }, uHasFx: { value: bd.refFx ? 1 : 0 }, uImage: { value: [w, h] }, uT: { value: GLOW_T } },
+      vertexShader: "void main() { gl_Position = vec4(position.xy, 0.0, 1.0); }",
+      fragmentShader: GLOW_TILE_FRAG,
+      depthTest: false,
+      depthWrite: false
+    });
+    const q = new Fu(mat), prev = gl.getRenderTarget(), set = new Uint8Array(TW * TH * 4);
+    gl.setRenderTarget(rt);
+    q.render(gl);
+    gl.readRenderTargetPixels(rt, 0, 0, TW, TH, set);
+    gl.setRenderTarget(prev);
+    rt.dispose();
+    mat.dispose();
+    q.dispose();
+    const N = TW * TH, fx = new Uint8Array(N), fxRow = new Uint8Array(N);
+    for (let y = 0;y < TH; y++)
+      for (let x = 0;x < TW; x++) {
+        let m = 0;
+        for (let d = -4;d <= 4; d++)
+          if (x + d >= 0 && x + d < TW)
+            m = Math.max(m, set[(y * TW + x + d) * 4 + 2]);
+        fxRow[y * TW + x] = m;
+      }
+    for (let y = 0;y < TH; y++)
+      for (let x = 0;x < TW; x++) {
+        let m = 0;
+        for (let d = -4;d <= 4; d++)
+          if (y + d >= 0 && y + d < TH)
+            m = Math.max(m, fxRow[(y + d) * TW + x]);
+        fx[y * TW + x] = m;
+      }
+    tileSet = new Uint8Array(N);
+    tileWarm = new Uint8Array(N);
+    let lit = 0;
+    for (let i = 0;i < N; i++) {
+      tileSet[i] = set[i * 4] / 255 * (1 + 0.3 * (fx[i] / 255)) > 0.249 ? 1 : 0;
+      tileWarm[i] = set[i * 4 + 1] > 127 ? 1 : 0;
+      lit += tileSet[i] & tileWarm[i];
+    }
+    for (const t of tileGeos.values())
+      t.geo.dispose();
+    tileGeos.clear();
+    tileMat ??= new Kt({ uniforms: fullMat.uniforms, defines: fullMat.defines, vertexShader: glowTileVert, fragmentShader: refFrag, toneMapped: false, depthWrite: false, depthTest: true, side: 2 });
+    tilesFor = img;
+    return lit / (TW * TH);
+  }
+  function grow(src, k) {
+    const row = new Uint8Array(TW * TH), out = new Uint8Array(TW * TH);
+    for (let y = 0;y < TH; y++)
+      for (let x = 0;x < TW; x++) {
+        let any = 0;
+        for (let d = -k;d <= k && !any; d++)
+          any = x + d >= 0 && x + d < TW ? src[y * TW + x + d] : 0;
+        row[y * TW + x] = any;
+      }
+    for (let y = 0;y < TH; y++)
+      for (let x = 0;x < TW; x++) {
+        let any = 0;
+        for (let d = -k;d <= k && !any; d++)
+          any = y + d >= 0 && y + d < TH ? row[(y + d) * TW + x] : 0;
+        out[y * TW + x] = any;
+      }
+    return out;
+  }
+  function tilesGrown(k) {
+    let t = tileGeos.get(k);
+    if (t)
+      return t;
+    const gb = grow(tileSet, k), gw = grow(tileWarm, k), grown = gb;
+    for (let i = 0;i < grown.length; i++)
+      grown[i] &= gw[i];
+    const pos = [], quad = (x0, y0, x1, y1) => pos.push(x0 * GLOW_T, y0 * GLOW_T, 0, x1 * GLOW_T, y0 * GLOW_T, 0, x0 * GLOW_T, y1 * GLOW_T, 0, x1 * GLOW_T, y0 * GLOW_T, 0, x1 * GLOW_T, y1 * GLOW_T, 0, x0 * GLOW_T, y1 * GLOW_T, 0);
+    let open = new Map, lit = 0;
+    for (let y = 0;y <= TH; y++) {
+      const next = new Map;
+      let run = -1;
+      for (let x = 0;y < TH && x <= TW; x++) {
+        const any = x < TW && grown[y * TW + x];
+        if (any)
+          lit++;
+        if (any && run < 0)
+          run = x;
+        if (!any && run >= 0) {
+          const o = open.get(run);
+          if (o && o[0] === x)
+            next.set(run, o), open.delete(run);
+          else
+            next.set(run, [x, y]);
+          run = -1;
+        }
+      }
+      for (const [x0, [x1, y0]] of open)
+        quad(x0, y0, x1, y);
+      open = next;
+    }
+    const nStatic = pos.length / 3;
+    for (let i = 0;i < 36; i++)
+      pos.push(0);
+    const geo = new ot, at = new Xe(pos, 3);
+    geo.setAttribute("position", at);
+    tileGeos.set(k, t = { geo, pos: at, nStatic, was: new Float64Array(8), share: lit / (TW * TH) });
+    return t;
+  }
+  function shockQuads(t) {
+    const a = fullMat.uniforms.uShockA.value, b = fullMat.uniforms.uShockB.value, P = t.pos.array, nStatic = t.nStatic;
+    let moved = false;
+    for (let i = 0;i < 2; i++) {
+      const on = a[i].w > 0, rx = on ? Math.max(b[i].x, 1) * 1.2 + 2 : 0, ry = on ? Math.max(b[i].y, 1) * 1.2 + 2 : 0, cx = on ? a[i].x : 0, cy = on ? a[i].y : 0;
+      const s = t.was, k = i * 4;
+      if (s[k] === cx && s[k + 1] === cy && s[k + 2] === rx && s[k + 3] === ry)
+        continue;
+      s[k] = cx, s[k + 1] = cy, s[k + 2] = rx, s[k + 3] = ry, moved = true;
+      const o = (nStatic + i * 6) * 3, x0 = cx - rx, x1 = cx + rx, y0 = cy - ry, y1 = cy + ry;
+      P[o] = x0, P[o + 1] = y0, P[o + 3] = x1, P[o + 4] = y0, P[o + 6] = x0, P[o + 7] = y1;
+      P[o + 9] = x1, P[o + 10] = y0, P[o + 12] = x1, P[o + 13] = y1, P[o + 15] = x0, P[o + 16] = y1;
+    }
+    if (moved) {
+      t.pos.clearUpdateRanges();
+      t.pos.addUpdateRange(nStatic * 3, 36);
+      t.pos.needsUpdate = true;
+    }
+  }
   return {
     main,
     glow,
     ref: r,
+    limitGlow(gl) {
+      let share;
+      if (QS.get("glowtiles") === "0" || !bd.refImage)
+        return;
+      if (tilesFor !== bd.refImage)
+        share = buildTiles(gl);
+      const u = fullMat.uniforms, img = bd.refImage.image, scale = (img?.width || r.image.w) / r.image.w;
+      const ipt = u.uCrop.value[2] / Math.max(1, u.uTarget.value[0]);
+      const lod = bd.refImage.generateMipmaps ? Math.max(0, Math.ceil(Math.log2(Math.max(0.000001, ipt * scale)) + u.uMipBias.value + 0.5)) : 0;
+      const reach = Math.pow(2, lod) / scale + 1.5;
+      const k = Math.ceil(reach / GLOW_T);
+      let t = k <= 4 ? tilesGrown(k) : null;
+      if (t && t.share > 0.7)
+        t = null;
+      if (t)
+        shockQuads(t);
+      glow.geometry = t ? t.geo : fullGeo;
+      glow.material = t ? tileMat : fullMat;
+      return share;
+    },
     depthMap: { tex: bd.refDepth, range: [r.depth.d0 * r.depth.u, r.depth.d1 * r.depth.u] },
     setEdit(cov, dep, show = false) {
       for (const m of [main, glow, over]) {
@@ -951,8 +1147,11 @@ function makeRefBackdrop2(bd) {
     dispose() {
       geo.dispose();
       main.material.dispose();
-      glow.material.dispose();
+      fullMat.dispose();
       over.material.dispose();
+      for (const t of tileGeos.values())
+        t.geo.dispose();
+      tileMat?.dispose();
     }
   };
 }

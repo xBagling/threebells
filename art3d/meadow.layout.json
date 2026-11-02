@@ -1,0 +1,63 @@
+{
+  "_about": "Where every prop of the 3D garden stands (docs/3D-PLAN.md 4.2). Edit and reload: r is the distance from the arena's centre and th the angle in degrees (0 = towards the camera's right, sim +x; 90 = sim +y, towards the camera's left). Sizes are in sim units. The layout tests (bun tools/test.mjs, 'The 3D garden') check every rule after an edit: nothing solid on the sim's floor (r < 119) and nothing that does not fade may hide the lawn.",
+  "lanterns": [
+    { "id": "L1", "r": 124, "th": -126 },
+    { "id": "L2", "r": 124, "th": -113 },
+    { "id": "L3", "r": 160, "th": -38, "_note": "terrace: at 155 it would hide lawn; at 160 it hides none" },
+    { "id": "L4", "r": 124, "th": 132, "_note": "measured on the lawn (110), pushed to the bed" },
+    { "id": "L5", "r": 168, "th": 31 }
+  ],
+  "trees": [
+    { "id": "T0", "kind": "blossom", "tint": "pink", "r": 124, "th": 162, "base": 1.9, "flare": 4.5, "fork": 17.5, "w": 36, "h": 27, "bottom": 19, "apples": 5, "cards": 950 },
+    { "id": "T1", "kind": "blossom", "tint": "pink", "r": 124, "th": -171, "base": 2.0, "flare": 4.5, "fork": 18.5, "w": 37, "h": 28, "bottom": 19, "apples": 7, "cards": 950 },
+    { "id": "T2", "kind": "blossom", "tint": "white", "r": 124, "th": -144, "base": 1.85, "flare": 4.5, "fork": 19.5, "w": 35, "h": 30, "bottom": 20, "apples": 4, "cards": 950 },
+    { "id": "T3", "kind": "round", "tint": "green", "r": 123.5, "th": 116, "base": 1.5, "flare": 3, "fork": 14, "w": 34, "h": 32, "bottom": 13, "apples": 0, "cards": 900 },
+    { "id": "T4", "kind": "conifer", "tint": "conifer", "r": 146, "th": -98, "base": 1.0, "flare": 1.6, "fork": 2, "w": 18, "h": 40, "bottom": 2.5, "apples": 0, "cards": 800 }
+  ],
+  "_trees": "base: trunk radius at the foot; flare: root flare radius; fork: where the trunk forks; w, h, bottom: the canopy's width, height and lowest point; cards: leaf cards (the coverage test wants 90% of the canopy covered from the camera, on High and Low, through the procedural and the painted cells; T4 has 800, not M4a's 700, because the painted conifer cells cover only about a third of a card)",
+  "topiary": { "id": "B1", "r": 127.5, "th": -159, "radius": 8.4, "cards": 420 },
+  "bushes": [
+    { "id": "BB1", "r": 164, "th": -7, "w": 26, "h": 16, "flowers": 0, "cards": 820 },
+    { "id": "BB2", "r": 167, "th": -15, "w": 18, "h": 14, "flowers": 6, "cards": 480 },
+    { "id": "BB3", "r": 162, "th": -28, "w": 29, "h": 18, "flowers": 7, "cards": 880 },
+    { "id": "BB4", "r": 158, "th": -50, "w": 22, "h": 15, "flowers": 5, "cards": 600 },
+    { "id": "BB5", "r": 170, "th": 23, "w": 24, "h": 16, "flowers": 5, "cards": 660 }
+  ],
+  "_bushes": "BB1-BB3 are the target's three front bushes; BB4 and BB5 follow bog.png",
+  "lupines": [
+    { "id": "LU1", "r": 148, "th": 49, "h": 23 },
+    { "id": "LU2", "r": 148, "th": 58, "h": 30 },
+    { "id": "LU3", "r": 148, "th": 67, "h": 24 },
+    { "id": "LU4", "r": 150, "th": -74, "h": 28 }
+  ],
+  "lawnClovers": [
+    { "x": -97.0, "y": -7.3, "across": 7 },
+    { "x": -85.1, "y": 54.0, "across": 6 },
+    { "x": -45.4, "y": 86.1, "across": 8 },
+    { "x": 27.1, "y": -1.5, "across": 5.5 },
+    { "x": 74.1, "y": -31.1, "across": 7 },
+    { "x": 27.4, "y": 85.1, "across": 12.7, "_note": "C1" },
+    { "x": 80.9, "y": 51.2, "across": 12.7, "_note": "C2" }
+  ],
+  "_lawnClovers": "bog.png's seven lawn clovers, at sim x, y",
+  "bedClovers": [
+    { "r": 123.5, "th": 178, "across": 6 },
+    { "r": 123, "th": 95, "across": 5.5 },
+    { "r": 123, "th": -100, "across": 6 },
+    { "r": 123.5, "th": 146, "across": 5 },
+    { "r": 123, "th": -62, "across": 5.5 },
+    { "r": 123, "th": 72, "across": 6 }
+  ],
+  "pillar": { "r": 150, "th": 170, "w": 6, "h": 22 },
+  "hedges": [
+    { "id": "H1", "r": 158, "th": 150, "len": 46, "depth": 10, "h": 12, "cards": 340 },
+    { "id": "H2", "r": 162, "th": -176, "len": 36, "depth": 9, "h": 13, "cards": 270 },
+    { "id": "H3", "r": 154, "th": -120, "len": 40, "depth": 9, "h": 10, "cards": 300 },
+    { "id": "S1", "r": 152, "th": 138, "len": 12, "depth": 10, "h": 10, "cards": 80, "lit": true }
+  ],
+  "_hedges": "near hedges: behind the back-left wall (the target's top-left masses) and beyond the right flank; S1 is the lit shrub",
+  "mounds": [-24, 4, 30],
+  "_mounds": "hedge mounds in gaps of the camera-side wall, by angle",
+  "mossPatches": [-68, -88, -100, 62, 80, 98],
+  "_mossPatches": "moss patches on the flank walls' inner faces, by angle"
+}

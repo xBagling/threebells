@@ -2,7 +2,7 @@ import {
   loadCamp2,
   makeCampBackdrop2,
   makeCampFx2
-} from "./main-d9sttapv.js?v=30e8e0e-97b8dd9b";
+} from "./main-d9sttapv.js?v=86060bd-fe114eac";
 import"./main-jv075w3r.js";
 import"./main-ybx00bvq.js";
 import"./main-3vr08xr3.js";

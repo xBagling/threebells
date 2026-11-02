@@ -1,7 +1,7 @@
 import {
   __preload,
   BACKDROP_ARENAS
-} from "./main-8rd3fg5z.js?v=30e8e0e-97b8dd9b";
+} from "./main-8rd3fg5z.js?v=86060bd-fe114eac";
 
 // site/js/gfx3d/load3d.js
 var ready = null;
@@ -19,7 +19,7 @@ var backdrops = {};
 function preload3D({ bosses = [] } = {}) {
   if (!ready)
     ready = (async () => {
-      const [{ makeRenderer3D }, { GLTFLoader }, { loadGardenPaint }, { BOSS_MODELS }] = await Promise.all([(__preload("smc0sn9y"), import("./render3d-smc0sn9y.js?v=30e8e0e-97b8dd9b")), (__preload("qv4jc8dc"), import("./gltf-qv4jc8dc.js?v=30e8e0e-97b8dd9b")), (__preload("4qgrvjyr"), import("./paint3d-4qgrvjyr.js?v=30e8e0e-97b8dd9b")), (__preload("p019r9js"), import("./boss-profiles-p019r9js.js?v=30e8e0e-97b8dd9b"))]);
+      const [{ makeRenderer3D }, { GLTFLoader }, { loadGardenPaint }, { BOSS_MODELS }] = await Promise.all([(__preload("fwskbzhs"), import("./render3d-fwskbzhs.js?v=86060bd-fe114eac")), (__preload("qv4jc8dc"), import("./gltf-qv4jc8dc.js?v=86060bd-fe114eac")), (__preload("4qgrvjyr"), import("./paint3d-4qgrvjyr.js?v=86060bd-fe114eac")), (__preload("p019r9js"), import("./boss-profiles-p019r9js.js?v=86060bd-fe114eac"))]);
       const loader = new GLTFLoader;
       const [hero, gnasher, garden] = await Promise.all([loadFirst(loader, HERO_URLS), loadFirst(loader, [BOSS_MODELS.gnasher.url]), loadGardenPaint()]);
       const assets = { hero, gnasher, garden, bell: null, bosses: { gnasher }, chests: {}, backdrops };
@@ -43,7 +43,7 @@ function once(key, has, load) {
   return loading.get(key);
 }
 var bossInfo = null;
-var info = () => bossInfo ??= Promise.all([(__preload("6zhbvbc2"), import("./bosses-6zhbvbc2.js?v=30e8e0e-97b8dd9b")), (__preload("p019r9js"), import("./boss-profiles-p019r9js.js?v=30e8e0e-97b8dd9b"))]).then(([{ BOSSES }, { BOSS_MODELS }]) => ({ BOSSES, BOSS_MODELS }));
+var info = () => bossInfo ??= Promise.all([(__preload("6zhbvbc2"), import("./bosses-6zhbvbc2.js?v=86060bd-fe114eac")), (__preload("p019r9js"), import("./boss-profiles-p019r9js.js?v=86060bd-fe114eac"))]).then(([{ BOSSES }, { BOSS_MODELS }]) => ({ BOSSES, BOSS_MODELS }));
 var arenaOf = (BOSSES, id) => BACKDROP_ARENAS.has(BOSSES[id]?.arena) ? BOSSES[id].arena : null;
 var REFCAM_OFF = typeof location !== "undefined" && new URLSearchParams(location.search).get("refcam") === "0";
 var wantsBell = (BOSSES, id) => {
@@ -54,7 +54,7 @@ var wantsBell = (BOSSES, id) => {
 };
 async function loadArenas(ids) {
   const { BOSSES } = await info();
-  const { loadBackdrop } = await (__preload("7f1yr037"), import("./backdrop3d-7f1yr037.js?v=30e8e0e-97b8dd9b"));
+  const { loadBackdrop } = await (__preload("7f1yr037"), import("./backdrop3d-7f1yr037.js?v=86060bd-fe114eac"));
   await Promise.all(ids.map((id) => arenaOf(BOSSES, id)).filter(Boolean).map((a) => once(a, () => backdrops[a] != null, async () => {
     const bd = await loadBackdrop(a);
     if (bd && backdrops[a] == null)
@@ -96,7 +96,7 @@ async function preloadCamp(id = "camp2") {
   const r = await preload3D();
   const B = backdrops;
   await once(id, () => B[id] != null, async () => {
-    const { loadCamp } = await (__preload("h8n5j04r"), import("./camp3d-h8n5j04r.js?v=30e8e0e-97b8dd9b"));
+    const { loadCamp } = await (__preload("h8n5j04r"), import("./camp3d-h8n5j04r.js?v=86060bd-fe114eac"));
     const bd = await loadCamp(id);
     if (bd && B[id] == null)
       B[id] = bd;

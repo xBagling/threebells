@@ -70,7 +70,7 @@ import {
   Zs,
   Du,
   Fu
-} from "./main-6mhe1mqq.js?v=30e8e0e-97b8dd9b";
+} from "./main-6mhe1mqq.js?v=86060bd-fe114eac";
 import {
   BACK,
   RIGHT,
@@ -78,7 +78,7 @@ import {
   H_TO_3D,
   texelFactor,
   cameraFrame
-} from "./main-g90df43y.js?v=30e8e0e-97b8dd9b";
+} from "./main-g90df43y.js?v=86060bd-fe114eac";
 import {
   __export,
   clamp,
@@ -134,10 +134,10 @@ import {
   placeOf,
   sfx,
   FEEL
-} from "./main-8rd3fg5z.js?v=30e8e0e-97b8dd9b";
+} from "./main-8rd3fg5z.js?v=86060bd-fe114eac";
 import {
   BOSS_MODELS2
-} from "./main-cqacbqc4.js?v=30e8e0e-97b8dd9b";
+} from "./main-cqacbqc4.js?v=86060bd-fe114eac";
 import {
   makeLookUniforms,
   GROUND_SHADE_LIFT,
@@ -198,32 +198,32 @@ import {
   cellTable2,
   barkCells2,
   atlasCells2
-} from "./main-rbjqmxbv.js?v=30e8e0e-97b8dd9b";
+} from "./main-rbjqmxbv.js?v=86060bd-fe114eac";
 import {
   pictureLoader
-} from "./main-74g1a3n8.js?v=30e8e0e-97b8dd9b";
+} from "./main-74g1a3n8.js?v=86060bd-fe114eac";
 import {
   lineOf2,
   linedIds2
-} from "./main-ybx00bvq.js?v=30e8e0e-97b8dd9b";
+} from "./main-ybx00bvq.js?v=86060bd-fe114eac";
 import {
   makeBackdrop2,
   makeBackdropFx2,
   makeRefBackdrop2,
   makeRefFlames2,
   makeRefBell2
-} from "./main-3tm083bp.js?v=30e8e0e-97b8dd9b";
+} from "./main-3tm083bp.js?v=86060bd-fe114eac";
 import"./main-3vr08xr3.js";
 import {
   makeCampBackdrop2,
   makeCampFx2
-} from "./main-d9sttapv.js?v=30e8e0e-97b8dd9b";
+} from "./main-d9sttapv.js?v=86060bd-fe114eac";
 import {
   unitQuad,
   planeQuad,
   perInstance,
   NOISE_GLSL
-} from "./main-jv075w3r.js?v=30e8e0e-97b8dd9b";
+} from "./main-jv075w3r.js?v=86060bd-fe114eac";
 
 // site/js/gfx3d/anim/sword-tracks.js
 var exports_sword_tracks = {};
@@ -16362,6 +16362,7 @@ var ringFrag = `
     gl_FragColor = vec4(col * uA, 0.0);
   }
 `;
+var STORM_POOLS = [60, 140, 220];
 var premult = (extra = {}) => ({ transparent: true, depthWrite: false, depthTest: true, blending: ja, blendSrc: eo, blendDst: no, toneMapped: false, ...extra });
 var quadGeo = (n, attrs) => {
   const g = unitQuad();
@@ -16422,8 +16423,15 @@ function makeCinderFx({ sparks }) {
     const L = kind === 0 ? fireL : smokeL;
     if (L.length >= (kind === 0 ? MAXF : MAXS) || gain < 1 && kind === 0 && rand() > gain)
       return;
-    L.push({ kind, x, y, z, vx, vy, vz, t: 0, life: life * R(0.75, 1.25), s0, s1, buoy, drag, a, seed: rand(), swirl, cx, cz, jet, off, v, d: d0, gone: null, sx, sy, sz });
+    const q = spentP.pop();
+    if (!q)
+      return void L.push({ kind, x, y, z, vx, vy, vz, t: 0, life: life * R(0.75, 1.25), s0, s1, buoy, drag, a, seed: rand(), swirl, cx, cz, jet, off, v, d: d0, gone: null, sx, sy, sz });
+    q.kind = kind, q.x = x, q.y = y, q.z = z, q.vx = vx, q.vy = vy, q.vz = vz, q.t = 0, q.life = life * R(0.75, 1.25), q.s0 = s0, q.s1 = s1;
+    q.buoy = buoy, q.drag = drag, q.a = a, q.seed = rand(), q.swirl = swirl, q.cx = cx, q.cz = cz, q.jet = jet, q.off = off, q.v = v;
+    q.d = d0, q.gone = null, q.sx = sx, q.sy = sy, q.sz = sz;
+    L.push(q);
   }
+  const spentP = [];
   function stepPuffs(L, A, dt) {
     let n = 0;
     for (let i = L.length - 1;i >= 0; i--) {
@@ -16432,6 +16440,8 @@ function makeCinderFx({ sparks }) {
       if (q.t >= q.life) {
         L[i] = L[L.length - 1];
         L.pop();
+        if (spentP.length < 600)
+          spentP.push(q);
         continue;
       }
       const dr = Math.pow(q.drag, dt * 60);
@@ -16488,6 +16498,7 @@ function makeCinderFx({ sparks }) {
   scorchMesh.renderOrder = 2;
   const scorchL = [];
   const pools = [];
+  const poolRecs = [];
   let floorW = null;
   const teleXY = [0, 0];
   const clipR = (x, y, r, k) => {
@@ -16501,7 +16512,9 @@ function makeCinderFx({ sparks }) {
       return;
     if (clip && (r = clipR(x, y, r, 0.8)) < 4)
       return;
-    pools.push([x, y, r, a]);
+    const q = poolRecs[pools.length] || (poolRecs[pools.length] = [0, 0, 0, 0]);
+    q[0] = x, q[1] = y, q[2] = r, q[3] = a;
+    pools.push(q);
   };
   function scorch(x, y, r, life = 4) {
     if ((r = clipR(x, y, r, 0.75)) < 3)
@@ -17024,8 +17037,8 @@ function makeCinderFx({ sparks }) {
         bubble.position.set(bx, gy(bx, by, BUBBLE_R * 0.62), by);
         const br = 1 + 0.012 * Math.sin(now * 1.7) + 0.008 * Math.sin(now * 2.9);
         bubble.scale.set(br, 2 - br, br);
-        for (const m of [bubbleBack, bubbleGlow])
-          m.position.copy(bubble.position), m.scale.copy(bubble.scale);
+        bubbleBack.position.copy(bubble.position), bubbleBack.scale.copy(bubble.scale);
+        bubbleGlow.position.copy(bubble.position), bubbleGlow.scale.copy(bubble.scale);
         bubbleU.uTime.value = now;
         bubbleU.uA.value = bubbleA;
         bubbleU.uForm.value = formK;
@@ -17333,16 +17346,22 @@ function makeCinderFx({ sparks }) {
             const inA = Math.min(1, (1 - u) * FALL / 0.08), inS = 0.6 + 0.4 * inA;
             card(x, y, z, 7 * inS, 7 * inS, 0, inA, 1, 1.4);
             card(x, y - 4, z, 10 * inS, 15 * inS, h.id * 0.37, 0.9 * inA, 0, 1.25);
-            rec.ballAt = [x, y, z];
+            if (rec.ballAt)
+              rec.ballAt[0] = x, rec.ballAt[1] = y, rec.ballAt[2] = z;
+            else
+              rec.ballAt = [x, y, z];
             glowPool(p.x, p.y, 16 + 14 * (1 - u), 0.35 * (1 - u) * inA);
-            const [lx, ly, lz] = rec.tailAt || [x, y, z], seg = Math.hypot(x - lx, y - ly, z - lz);
+            const ta = rec.tailAt, lx = ta ? ta[0] : x, ly = ta ? ta[1] : y, lz = ta ? ta[2] : z, seg = Math.hypot(x - lx, y - ly, z - lz);
             rec.tail = (rec.tail || 0) + seg;
             const fv = dt > 0.0001 ? 0.5 / dt : 0;
             for (;rec.tail >= 5; rec.tail -= 5) {
               const k = 1 - rec.tail / Math.max(0.001, seg);
               puff(0, lx + (x - lx) * k + R(-1.5, 1.5), ly + (y - ly) * k + R(0, 3), lz + (z - lz) * k + R(-1.5, 1.5), R(-6, 6), R(10, 30), R(-6, 6), R(0.12, 0.22), R(3.5, 5), R(5, 7), { buoy: 10, a: inA, sx: (x - lx) * fv, sy: (y - ly) * fv, sz: (z - lz) * fv });
             }
-            rec.tailAt = [x, y, z];
+            if (ta)
+              ta[0] = x, ta[1] = y, ta[2] = z;
+            else
+              rec.tailAt = [x, y, z];
             if (rand() < dt * 15)
               puff(1, x, y + 6, z, R(-4, 4), 10, R(-4, 4), R(0.5, 0.8), 4, 9);
           }
@@ -17361,7 +17380,7 @@ function makeCinderFx({ sparks }) {
           for (let i = 0;i < 6; i++)
             glowPool(p.x + Math.cos(i / 6 * TAU3) * r, p.y + Math.sin(i / 6 * TAU3) * r, 34, 0.28 * fadeK * grow);
           for (let i = 0;i < 80; i += step) {
-            const [a, dr, ws, hs, sd] = rec.ring[i];
+            const rg = rec.ring[i], a = rg[0], dr = rg[1], ws = rg[2], hs = rg[3], sd = rg[4];
             const x = p.x + Math.cos(a) * (r - 4 + dr), y = p.y + Math.sin(a) * (r - 4 + dr);
             if (!onFloor(w, x, y))
               continue;
@@ -17378,7 +17397,7 @@ function makeCinderFx({ sparks }) {
         } else if (h.tag === "storm") {
           if (ph === "active") {
             rec.jet ??= { x: p.x, y: p.y, a: p.a, r0: h.r0 };
-            Object.assign(rec.jet, { x: p.x, y: p.y, a: p.a });
+            rec.jet.x = p.x, rec.jet.y = p.y, rec.jet.a = p.a;
             const cnt = Math.floor(dt * 260 + rand());
             for (let i = 0;i < cnt; i++) {
               const off = (rand() * 2 - 1) * h.half * 0.85;
@@ -17386,8 +17405,10 @@ function makeCinderFx({ sparks }) {
             }
             if (rand() < dt * 16)
               puff(1, p.x + Math.cos(p.a) * R(60, 200), gy(p.x, p.y, R(10, 24)), p.y + Math.sin(p.a) * R(60, 200), Math.cos(p.a) * 60, 20, Math.sin(p.a) * 60, R(1, 1.6), 8, 22);
-            for (const d of [60, 140, 220])
+            for (let j = 0;j < 3; j++) {
+              const d = STORM_POOLS[j];
               glowPool(p.x + Math.cos(p.a) * d, p.y + Math.sin(p.a) * d, 40 + d * 0.15, 0.42);
+            }
             for (let j = 0;j < 3; j++) {
               const a = p.a + (j - 1) * h.half * 0.5;
               const x = p.x + Math.cos(a) * (h.r0 + 6), y = p.y + Math.sin(a) * (h.r0 + 6);
@@ -17558,17 +17579,19 @@ function makeCinderFx({ sparks }) {
       for (let i = scorchL.length - 1;i >= 0; i--)
         if ((scorchL[i].t += dt) >= scorchL[i].life)
           scorchL.splice(i, 1);
-      scorchL.forEach((q, i) => {
+      for (let i = 0;i < scorchL.length; i++) {
+        const q = scorchL[i];
         const P = D.a.iPos.array, Q = D.a.iData.array;
         P[i * 4] = q.x, P[i * 4 + 1] = floorAt(q.x, q.y) + 0.4, P[i * 4 + 2] = q.y, P[i * 4 + 3] = q.r;
         Q[i * 3] = q.t / q.life, Q[i * 3 + 1] = q.seed, Q[i * 3 + 2] = 0;
-      });
-      pools.forEach(([x, y, r, a], i) => {
+      }
+      for (let i = 0;i < pools.length; i++) {
+        const pq = pools[i], x = pq[0], y = pq[1], r = pq[2], a = pq[3];
         const j = scorchL.length + i;
         const P = D.a.iPos.array, Q = D.a.iData.array;
         P[j * 4] = x, P[j * 4 + 1] = floorAt(x, y) + 0.5, P[j * 4 + 2] = y, P[j * 4 + 3] = r;
         Q[j * 3] = a, Q[j * 3 + 1] = 0.37 * i, Q[j * 3 + 2] = 1;
-      });
+      }
       send(D, scorchL.length + pools.length);
       pools.length = 0;
       const nF = stepPuffs(fireL, F.a, dt), nS = stepPuffs(smokeL, S.a, dt);

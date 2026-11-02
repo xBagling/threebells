@@ -11,29 +11,29 @@ import {
   Tt,
   Fn,
   Kt
-} from "./main-6mhe1mqq.js?v=30e8e0e-97b8dd9b";
+} from "./main-6mhe1mqq.js?v=86060bd-fe114eac";
 import {
   BACK,
   RIGHT,
   UP
-} from "./main-g90df43y.js?v=30e8e0e-97b8dd9b";
+} from "./main-g90df43y.js?v=86060bd-fe114eac";
 import {
   pictureLoader,
   rawTex
-} from "./main-74g1a3n8.js?v=30e8e0e-97b8dd9b";
+} from "./main-74g1a3n8.js?v=86060bd-fe114eac";
 import {
   loadEdit2,
   emptyEdit2,
   loadPieces2,
   attachPieces2
-} from "./main-ybx00bvq.js?v=30e8e0e-97b8dd9b";
+} from "./main-ybx00bvq.js?v=86060bd-fe114eac";
 import {
   loadFxEdit2
-} from "./main-3vr08xr3.js?v=30e8e0e-97b8dd9b";
+} from "./main-3vr08xr3.js?v=86060bd-fe114eac";
 import {
   unitQuad,
   NOISE_GLSL
-} from "./main-jv075w3r.js?v=30e8e0e-97b8dd9b";
+} from "./main-jv075w3r.js?v=86060bd-fe114eac";
 
 // site/js/gfx3d/camp3d.js
 async function loadCamp2(id) {

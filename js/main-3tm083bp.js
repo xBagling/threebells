@@ -17,30 +17,30 @@ import {
   Fn,
   Kt,
   Fu
-} from "./main-6mhe1mqq.js?v=30e8e0e-97b8dd9b";
+} from "./main-6mhe1mqq.js?v=86060bd-fe114eac";
 import {
   BACK,
   RIGHT,
   UP
-} from "./main-g90df43y.js?v=30e8e0e-97b8dd9b";
+} from "./main-g90df43y.js?v=86060bd-fe114eac";
 import {
   pictureLoader,
   rawTex
-} from "./main-74g1a3n8.js?v=30e8e0e-97b8dd9b";
+} from "./main-74g1a3n8.js?v=86060bd-fe114eac";
 import {
   loadEdit2,
   emptyEdit2,
   loadPieces2,
   attachPieces2
-} from "./main-ybx00bvq.js?v=30e8e0e-97b8dd9b";
+} from "./main-ybx00bvq.js?v=86060bd-fe114eac";
 import {
   unitQuad,
   NOISE_GLSL
-} from "./main-jv075w3r.js?v=30e8e0e-97b8dd9b";
+} from "./main-jv075w3r.js?v=86060bd-fe114eac";
 import {
   __preload,
   maxTextureSize
-} from "./main-8rd3fg5z.js?v=30e8e0e-97b8dd9b";
+} from "./main-8rd3fg5z.js?v=86060bd-fe114eac";
 
 // site/js/gfx3d/backdrop3d.js
 var QS = typeof location !== "undefined" ? new URLSearchParams(location.search) : new URLSearchParams;
@@ -93,7 +93,7 @@ async function loadRef(bd, tl, base) {
   const size = pics.then(([, rd]) => ({ w: rd.image.width, h: rd.image.height }));
   const edits = Promise.all([loadEdit2(id, size), loadPieces2(id, size, true)]);
   const b3url = QS.get("bell3d") ? `art3d/${QS.get("bell3d")}/bell.gltf` : meta.bell3d?.file ? `art3d/${id}/${meta.bell3d.file}` : null;
-  const bell3d = b3url ? (__preload("qv4jc8dc"), import("./gltf-qv4jc8dc.js?v=30e8e0e-97b8dd9b")).then(({ GLTFLoader }) => new GLTFLoader().loadAsync(b3url)).catch(() => null) : null;
+  const bell3d = b3url ? (__preload("qv4jc8dc"), import("./gltf-qv4jc8dc.js?v=86060bd-fe114eac")).then(({ GLTFLoader }) => new GLTFLoader().loadAsync(b3url)).catch(() => null) : null;
   const bell = meta.bell?.file && !QS.get("bell3d") ? tex(`art3d/${id}/${meta.bell.file}`) : null;
   const answer = meta.answer?.file ? tex(`art3d/${id}/${meta.answer.file}`) : null;
   const life = meta.life?.file ? Promise.all([meta.life.file, meta.life.file2].map((f) => f ? tex(`art3d/${id}/${f}`) : null)) : [null, null];

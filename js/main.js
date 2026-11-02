@@ -92,8 +92,8 @@ import {
   stopFor,
   shakeFor,
   canView3D
-} from "./main-4hwc579a.js?v=eb95ef4-144bbf27";
-__chunks(import.meta.url,["qxzjg2w8","3ac0270b","q3wm931g","zdqbes29","fgk75wn7","4hwc579a","gz6gww92","tqqchrwg","txhfbk9m","qv4jc8dc","gaawaxaw","agd5vtg6","p019r9js","ybx00bvq","74g1a3n8","6mhe1mqq","3vr08xr3","s640c5j1","jv075w3r","drnmg1te","mknp57za","cqacbqc4","et58xwpz"],[["./main.js",5],["./load3d-3ac0270b.js",5],["./mapedit3d-q3wm931g.js",13,14,15],["./fxedit-zdqbes29.js",16,14,15],["./three-lib-fgk75wn7.js",15],["./main-4hwc579a.js"],["./bosses-gz6gww92.js",5],["./backdrop3d-tqqchrwg.js",17,18,13,14,19,15],["./camp3d-txhfbk9m.js",20,18,13,16,14,19,15],["./gltf-qv4jc8dc.js",15],["./render3d-gaawaxaw.js",15,19,5,21,22,14,13,17,16,20,18],["./paint3d-agd5vtg6.js",22,19,15],["./boss-profiles-p019r9js.js",21],["./main-ybx00bvq.js",15,14],["./main-74g1a3n8.js",15],["./main-6mhe1mqq.js"],["./main-3vr08xr3.js",15,14],["./main-s640c5j1.js",15,19,14,13,18,5],["./main-jv075w3r.js",15],["./main-drnmg1te.js",5],["./main-mknp57za.js",15,19,14,13,16,18],["./main-cqacbqc4.js"],["./main-et58xwpz.js",15,5,19]],0);
+} from "./main-8rd3fg5z.js?v=3d5411a-058309b9";
+__chunks(import.meta.url,["f4kp3c54","naewgr9v","q3wm931g","zdqbes29","fgk75wn7","8rd3fg5z","6zhbvbc2","56b0kd0s","h8n5j04r","qv4jc8dc","htktrwmw","4qgrvjyr","p019r9js","ybx00bvq","74g1a3n8","6mhe1mqq","3vr08xr3","yj2wy693","jv075w3r","g90df43y","d9sttapv","cqacbqc4","rbjqmxbv"],[["./main.js",5],["./load3d-naewgr9v.js",5],["./mapedit3d-q3wm931g.js",13,14,15],["./fxedit-zdqbes29.js",16,14,15],["./three-lib-fgk75wn7.js",15],["./main-8rd3fg5z.js"],["./bosses-6zhbvbc2.js",5],["./backdrop3d-56b0kd0s.js",17,18,13,14,19,15],["./camp3d-h8n5j04r.js",20,18,13,16,14,19,15],["./gltf-qv4jc8dc.js",15],["./render3d-htktrwmw.js",15,19,5,21,22,14,13,17,16,20,18],["./paint3d-4qgrvjyr.js",22,19,15],["./boss-profiles-p019r9js.js",21],["./main-ybx00bvq.js",15,14],["./main-74g1a3n8.js",15],["./main-6mhe1mqq.js"],["./main-3vr08xr3.js",15,14],["./main-yj2wy693.js",15,19,14,13,18,5],["./main-jv075w3r.js",15],["./main-g90df43y.js",5],["./main-d9sttapv.js",15,19,14,13,16,18],["./main-cqacbqc4.js"],["./main-rbjqmxbv.js",15,5,19]],0);
 
 // site/js/input.js
 var isTouchDevice = () => new URLSearchParams(location.search).get("touch") === "1" || matchMedia("(hover: none) and (pointer: coarse)").matches || navigator.maxTouchPoints > 0;
@@ -4365,8 +4365,8 @@ function mountMapEdit(host, { renderer, onToggle, place = "right", world = () =>
 }
 var GONE = new Error("map edit: the screen went away");
 async function startEditor(host, renderer, info, { world, cam, gone = () => false }) {
-  ({ emptyEdit, packEdit, fill, lineOf: lineOfE } = await (__preload("q3wm931g"), import("./mapedit3d-q3wm931g.js?v=eb95ef4-144bbf27")));
-  ({ fillFx, packFx } = await (__preload("zdqbes29"), import("./fxedit-zdqbes29.js?v=eb95ef4-144bbf27")));
+  ({ emptyEdit, packEdit, fill, lineOf: lineOfE } = await (__preload("q3wm931g"), import("./mapedit3d-q3wm931g.js?v=3d5411a-058309b9")));
+  ({ fillFx, packFx } = await (__preload("zdqbes29"), import("./fxedit-zdqbes29.js?v=3d5411a-058309b9")));
   if (gone())
     throw GONE;
   const { bd, id } = info;
@@ -7005,7 +7005,7 @@ function askMods3D() {
 }
 var load3dModule = () => {
   askMods3D();
-  return RELEASE ? (__preload("fgk75wn7"), import("./three-lib-fgk75wn7.js?v=eb95ef4-144bbf27")).then((t) => (new t.TextureLoader().manager.setURLModifier(stampUrl), __preload("3ac0270b"), import("./load3d-3ac0270b.js?v=eb95ef4-144bbf27"))) : (__preload("3ac0270b"), import("./load3d-3ac0270b.js?v=eb95ef4-144bbf27"));
+  return RELEASE ? (__preload("fgk75wn7"), import("./three-lib-fgk75wn7.js?v=3d5411a-058309b9")).then((t) => (new t.TextureLoader().manager.setURLModifier(stampUrl), __preload("naewgr9v"), import("./load3d-naewgr9v.js?v=3d5411a-058309b9"))) : (__preload("naewgr9v"), import("./load3d-naewgr9v.js?v=3d5411a-058309b9"));
 };
 function preload3D(bosses = []) {
   if (!loading3D)

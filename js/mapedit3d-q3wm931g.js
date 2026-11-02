@@ -10,7 +10,7 @@ import {
   linedIds2,
   attachPieces2,
   fill2
-} from "./main-ybx00bvq.js?v=eb95ef4-144bbf27";
+} from "./main-ybx00bvq.js?v=3d5411a-058309b9";
 import"./main-74g1a3n8.js";
 import"./main-6mhe1mqq.js";
 export {

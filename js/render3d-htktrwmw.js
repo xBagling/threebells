@@ -70,7 +70,7 @@ import {
   Zs,
   Du,
   Fu
-} from "./main-6mhe1mqq.js?v=eb95ef4-144bbf27";
+} from "./main-6mhe1mqq.js?v=3d5411a-058309b9";
 import {
   BACK,
   RIGHT,
@@ -78,7 +78,7 @@ import {
   H_TO_3D,
   texelFactor,
   cameraFrame
-} from "./main-drnmg1te.js?v=eb95ef4-144bbf27";
+} from "./main-g90df43y.js?v=3d5411a-058309b9";
 import {
   __export,
   clamp,
@@ -134,10 +134,10 @@ import {
   placeOf,
   sfx,
   FEEL
-} from "./main-4hwc579a.js?v=eb95ef4-144bbf27";
+} from "./main-8rd3fg5z.js?v=3d5411a-058309b9";
 import {
   BOSS_MODELS2
-} from "./main-cqacbqc4.js?v=eb95ef4-144bbf27";
+} from "./main-cqacbqc4.js?v=3d5411a-058309b9";
 import {
   makeLookUniforms,
   GROUND_SHADE_LIFT,
@@ -198,32 +198,32 @@ import {
   cellTable2,
   barkCells2,
   atlasCells2
-} from "./main-et58xwpz.js?v=eb95ef4-144bbf27";
+} from "./main-rbjqmxbv.js?v=3d5411a-058309b9";
 import {
   pictureLoader
-} from "./main-74g1a3n8.js?v=eb95ef4-144bbf27";
+} from "./main-74g1a3n8.js?v=3d5411a-058309b9";
 import {
   lineOf2,
   linedIds2
-} from "./main-ybx00bvq.js?v=eb95ef4-144bbf27";
+} from "./main-ybx00bvq.js?v=3d5411a-058309b9";
 import {
   makeBackdrop2,
   makeBackdropFx2,
   makeRefBackdrop2,
   makeRefFlames2,
   makeRefBell2
-} from "./main-s640c5j1.js?v=eb95ef4-144bbf27";
+} from "./main-yj2wy693.js?v=3d5411a-058309b9";
 import"./main-3vr08xr3.js";
 import {
   makeCampBackdrop2,
   makeCampFx2
-} from "./main-mknp57za.js?v=eb95ef4-144bbf27";
+} from "./main-d9sttapv.js?v=3d5411a-058309b9";
 import {
   unitQuad,
   planeQuad,
   perInstance,
   NOISE_GLSL
-} from "./main-jv075w3r.js?v=eb95ef4-144bbf27";
+} from "./main-jv075w3r.js?v=3d5411a-058309b9";
 
 // site/js/gfx3d/anim/sword-tracks.js
 var exports_sword_tracks = {};
@@ -1062,7 +1062,10 @@ var frag = `
       // (and Gnasher's acid pool, +32: spat at the hero, by the floor's edge it was cut off by the outline in a straight line —
       // .scratch/souls/acidwater.mjs, the visual loop 2026-10-30)
       gA = 1.0;
-      if (kind == 5 || uD[i].w > 15.5) {
+      // (only where the mark draws: every stroke of a brine or acid mark lies inside it — the acid pool's own outline too, which
+      // wanders inward only — so its 64-side edge loop and noise ran for nothing over the rest of the floor, every pixel of it, for
+      // as long as a pool or a tide lay anywhere: a flood's safe shallows are drawn outside it, so a flood still asks everywhere)
+      if (kind == 5 || (uD[i].w > 15.5 && inside)) {
         if (eD < -1e5) eD = edgeIn(p);
         gA = smoothstep(0.0, 7.0, eD + (vnoise(p * 0.14 + vec2(uTime * 0.4, -uTime * 0.3)) - 0.5) * 6.0);
       }
@@ -1422,6 +1425,42 @@ function makeHazardLayer() {
   mesh.frustumCulled = false;
   scene.add(mesh);
   let pending = null;
+  let yLo = 0.05, yHi = 0.05;
+  const box = [0, 0, 0, 0];
+  let rect = null;
+  const corner = new et, vp = new Pe;
+  const grow = (x0, y0, x1, y1) => {
+    if (x0 < box[0])
+      box[0] = x0;
+    if (y0 < box[1])
+      box[1] = y0;
+    if (x1 > box[2])
+      box[2] = x1;
+    if (y1 > box[3])
+      box[3] = y1;
+  };
+  const growPt = (x, y, pad) => grow(x - pad, y - pad, x + pad, y + pad);
+  function screenRect(camera, W, H) {
+    vp.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+    let sx0 = Infinity, sy0 = Infinity, sx1 = -Infinity, sy1 = -Infinity;
+    for (let c = 0;c < 8; c++) {
+      corner.set(c & 1 ? box[2] : box[0], c & 2 ? yHi : yLo, c & 4 ? box[3] : box[1], 1).applyMatrix4(vp);
+      if (corner.w <= 0.000001)
+        return null;
+      const x = (corner.x / corner.w * 0.5 + 0.5) * W, y = (corner.y / corner.w * 0.5 + 0.5) * H;
+      if (x < sx0)
+        sx0 = x;
+      if (y < sy0)
+        sy0 = y;
+      if (x > sx1)
+        sx1 = x;
+      if (y > sy1)
+        sy1 = y;
+    }
+    const x0 = Math.max(0, Math.floor(sx0) - 3), y0 = Math.max(0, Math.floor(sy0) - 3);
+    const x1 = Math.min(W, Math.ceil(sx1) + 3), y1 = Math.min(H, Math.ceil(sy1) + 3);
+    return [x0, y0, Math.max(0, x1 - x0), Math.max(0, y1 - y0)];
+  }
   function sheet(shape) {
     const xs = shape.poly.map((q) => q[0]), zs = shape.poly.map((q) => q[1]);
     const x0 = Math.min(...xs) - 4, x1 = Math.max(...xs) + 4, z0 = Math.min(...zs) - 4, z1 = Math.max(...zs) + 4;
@@ -1429,8 +1468,17 @@ function makeHazardLayer() {
     g.rotateX(-Math.PI / 2);
     g.translate((x0 + x1) / 2, 0, (z0 + z1) / 2);
     const pos = g.attributes.position;
-    for (let i = 0;i < pos.count; i++)
-      pos.setY(i, floorAt(pos.getX(i), pos.getZ(i)));
+    yLo = Infinity;
+    yHi = -Infinity;
+    for (let i = 0;i < pos.count; i++) {
+      const y = floorAt(pos.getX(i), pos.getZ(i));
+      pos.setY(i, y);
+      if (y < yLo)
+        yLo = y;
+      if (y > yHi)
+        yHi = y;
+    }
+    yLo += 0.05, yHi += 0.05;
     pos.needsUpdate = true;
     g.computeBoundingSphere();
     return g;
@@ -1442,6 +1490,7 @@ function makeHazardLayer() {
         geo.dispose();
       geo = disc;
       pending = null;
+      yLo = yHi = 0.05;
       if (!shape?.poly) {
         uniforms.uR.value = ARENA.R;
         uniforms.uNPoly.value = 0;
@@ -1458,6 +1507,9 @@ function makeHazardLayer() {
     },
     setNoRed(on) {
       uniforms.uNoRed.value = on ? 1 : 0;
+    },
+    get rect() {
+      return rect;
     },
     update(w, at, now, aim, p, zoom, depthTex, W, H, hide = null, camera = null) {
       if (camera)
@@ -1487,6 +1539,7 @@ function makeHazardLayer() {
         if (now - g.t0 >= 0.4)
           ghosts.delete(h), gone.add(h), anyGone = true;
       drawnLast.clear();
+      box[0] = box[1] = Infinity, box[2] = box[3] = -Infinity;
       for (const h of ghosts.size || anyGone ? [...w.hazards.filter((x) => !ghosts.has(x) && !gone.has(x)), ...ghosts.keys()] : w.hazards) {
         if (n >= MAX_HAZARDS)
           break;
@@ -1532,8 +1585,16 @@ function makeHazardLayer() {
         if (h.kind === KIND.FLOOD) {
           for (const [sx, sy, sr] of h.safe || [])
             if (nSafe < MAX_SAFE)
-              uniforms.uSafe.value[nSafe++].set(sx, sy, sr, n);
+              uniforms.uSafe.value[nSafe++].set(sx, sy, sr, n), growPt(sx, sy, sr);
         }
+        if (h.kind === KIND.LANE) {
+          const ux = Math.cos(pos.a), uy = Math.sin(pos.a), L = h.len || 0, hw = (h.w || 0) / 2;
+          const ex = Math.abs(uy) * hw, ey = Math.abs(ux) * hw;
+          grow(Math.min(pos.x, pos.x + ux * L) - ex, Math.min(pos.y, pos.y + uy * L) - ey, Math.max(pos.x, pos.x + ux * L) + ex, Math.max(pos.y, pos.y + uy * L) + ey);
+        } else if (h.kind === KIND.FLOOD)
+          growPt(0, 0, uniforms.uR.value);
+        else
+          growPt(pos.x, pos.y, r + (h.kind === KIND.WAVE ? (h.w || 0) / 2 : 0));
         n++;
       }
       uniforms.uN.value = n;
@@ -1550,6 +1611,15 @@ function makeHazardLayer() {
       const any = n > 0 || !!aim || p.shield > 0;
       if (any && pending)
         mesh.geometry = geo = sheet(pending), pending = null;
+      const A = uniforms.uAim.value;
+      if (A.w > 0) {
+        const ux = Math.cos(A.z), uy = Math.sin(A.z), hx = A.x + ux * A.w, hy = A.y + uy * A.w, lw = 1.1 / zoom + 0.5;
+        grow(Math.min(A.x + ux * 12, hx) - lw, Math.min(A.y + uy * 12, hy) - lw, Math.max(A.x + ux * 12, hx) + lw, Math.max(A.y + uy * 12, hy) + lw);
+        growPt(hx, hy, 7 + lw);
+      }
+      if (p.shield > 0)
+        growPt(p.x, p.y, 13 + 0.96 / zoom + 0.5);
+      rect = !any || !camera || !(box[2] >= box[0]) ? null : screenRect(camera, W, H);
       return any;
     },
     dispose() {
@@ -23596,8 +23666,15 @@ void main() {`).replace("#include <dithering_fragment>", `#include <dithering_fr
     const crabShown = (h) => bossFor === "crab" && !(h.kind === KIND.FLOOD && phaseOf(h) === "tele");
     const hideMark = marksOff ? (h) => h.art === "coal" || !h.friendly && !substance(h) && !crabShown(h) : (h) => h.art === "coal";
     marks.setNoRed(!demoOn);
-    if (!debug.empty && marks.update(w, (h) => lerp.hazard(h), now, aimPreview?.(), w.player, cam.zoom, post.scene.depthTexture, f.W, f.H, hideMark, camera))
-      gl.render(marks.scene, camera);
+    if (!debug.empty && marks.update(w, (h) => lerp.hazard(h), now, aimPreview?.(), w.player, cam.zoom, post.scene.depthTexture, f.W, f.H, hideMark, camera)) {
+      const sr = marks.rect, dt = post.decal;
+      if (sr)
+        dt.scissor.set(sr[0], sr[1], sr[2], sr[3]), dt.scissorTest = true, gl.setRenderTarget(dt);
+      if (!sr || sr[2] > 0 && sr[3] > 0)
+        gl.render(marks.scene, camera);
+      if (sr)
+        dt.scissorTest = false, gl.setRenderTarget(dt);
+    }
     for (const p of activeFx) {
       const ds = p.decal?.(post.scene.depthTexture, f.W, f.H, camera);
       if (ds)

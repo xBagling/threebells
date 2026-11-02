@@ -30,16 +30,16 @@ import {
   Kt,
   dl,
   oa
-} from "./main-6mhe1mqq.js?v=eb95ef4-144bbf27";
+} from "./main-6mhe1mqq.js?v=3d5411a-058309b9";
 import {
   rng,
   ARENA
-} from "./main-4hwc579a.js?v=eb95ef4-144bbf27";
+} from "./main-8rd3fg5z.js?v=3d5411a-058309b9";
 import {
   BACK,
   RIGHT,
   UP
-} from "./main-drnmg1te.js?v=eb95ef4-144bbf27";
+} from "./main-g90df43y.js?v=3d5411a-058309b9";
 
 // site/js/gfx3d/materials3d.js
 function makeLookUniforms() {

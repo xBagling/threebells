@@ -5,10 +5,10 @@ import {
   mn,
   ni,
   os
-} from "./main-6mhe1mqq.js?v=eb95ef4-144bbf27";
+} from "./main-6mhe1mqq.js?v=3d5411a-058309b9";
 import {
   rawTex
-} from "./main-74g1a3n8.js?v=eb95ef4-144bbf27";
+} from "./main-74g1a3n8.js?v=3d5411a-058309b9";
 
 // site/js/gfx3d/mapedit3d.js
 var OWN_PIECES2 = 40000;
